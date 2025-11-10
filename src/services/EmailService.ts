@@ -59,13 +59,16 @@ export class EmailService implements IEmailService {
       };
 
       await sgMail.send(msg);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Log detailed error information from SendGrid
-      if (error.response) {
-        const { body } = error.response;
-        console.error('\n❌ SendGrid Error Details:');
-        console.error('Status:', error.code);
-        console.error('Response:', JSON.stringify(body, null, 2));
+      if (error && typeof error === 'object' && 'response' in error) {
+        const sgError = error as { response?: { body: unknown }; code?: string };
+        if (sgError.response) {
+          const { body } = sgError.response;
+          console.error('\n❌ SendGrid Error Details:');
+          console.error('Status:', sgError.code);
+          console.error('Response:', JSON.stringify(body, null, 2));
+        }
       }
 
       if (error instanceof Error) {

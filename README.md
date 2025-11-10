@@ -120,6 +120,12 @@ npm run test:watch      # Watch mode
 npm run build
 ```
 
+### Linting:
+```bash
+npm run lint          # Check code style
+npm run lint:fix      # Auto-fix linting issues
+```
+
 ## 🏗️ Project Structure
 
 ```
