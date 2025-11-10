@@ -4,11 +4,11 @@ import { SecretSantaApp } from './SecretSantaApp';
 dotenv.config();
 
 async function main() {
-  const dryRun = process.argv.includes('--dry-run');
-  const skipImages = process.argv.includes('--no-images');
+  const isDryRun = process.argv.includes('--dry-run');
+  const shouldSkipImages = process.argv.includes('--no-images');
 
   try {
-    const app = new SecretSantaApp(dryRun, skipImages);
+    const app = new SecretSantaApp(isDryRun, shouldSkipImages);
     await app.run();
   } catch (error) {
     process.exit(1);

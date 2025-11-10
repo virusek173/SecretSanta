@@ -6,9 +6,9 @@ import { Participant } from '../types';
  */
 export class ParticipantValidator {
   /**
-   * Validate email address format
+   * Check if email address format is valid
    */
-  validateEmail(email: string): boolean {
+  isValidEmail(email: string): boolean {
     return validator.isEmail(email);
   }
 
@@ -24,7 +24,7 @@ export class ParticipantValidator {
       throw new Error('Participant email cannot be empty');
     }
 
-    if (!this.validateEmail(participant.email)) {
+    if (!this.isValidEmail(participant.email)) {
       throw new Error(`Invalid email address: ${participant.email}`);
     }
 

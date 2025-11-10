@@ -16,13 +16,13 @@ export class SecretSantaApp {
   private llmService: LlmService;
   private imageService: ImageService;
   private emailService: EmailService | null;
-  private dryRun: boolean;
-  private skipImages: boolean;
+  private isDryRun: boolean;
+  private shouldSkipImages: boolean;
   private outputDir: string;
 
-  constructor(dryRun: boolean = false, skipImages: boolean = false) {
-    this.dryRun = dryRun;
-    this.skipImages = skipImages;
+  constructor(isDryRun: boolean = false, shouldSkipImages: boolean = false) {
+    this.isDryRun = isDryRun;
+    this.shouldSkipImages = shouldSkipImages;
     this.outputDir = path.join(process.cwd(), 'output');
     this.algorithm = new SecretSantaAlgorithm();
     this.configLoader = new ConfigLoader();
@@ -33,13 +33,13 @@ export class SecretSantaApp {
     this.llmService = new LlmService(openaiApiKey);
     this.imageService = new ImageService(openaiApiKey);
 
-    this.emailService = dryRun ? null : this.createEmailService();
+    this.emailService = isDryRun ? null : this.createEmailService();
   }
 
   private validateEnv(): void {
     const required = ['OPENAI_API_KEY'];
 
-    if (!this.dryRun) {
+    if (!this.isDryRun) {
       required.push('SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM');
     }
 
@@ -71,7 +71,7 @@ export class SecretSantaApp {
     this.printHeader();
 
     try {
-      if (this.dryRun) {
+      if (this.isDryRun) {
         this.prepareOutputDirectory();
       }
 
@@ -99,13 +99,13 @@ export class SecretSantaApp {
   private printHeader(): void {
     console.log('🎅 Secret Santa Application');
     console.log('═'.repeat(50));
-    if (this.dryRun) {
+    if (this.isDryRun) {
       console.log('⚠️  DRY RUN MODE - No emails will be sent');
     }
-    if (this.skipImages) {
+    if (this.shouldSkipImages) {
       console.log('⚠️  SKIP IMAGES MODE - No images will be generated');
     }
-    if (this.dryRun || this.skipImages) {
+    if (this.isDryRun || this.shouldSkipImages) {
       console.log('');
     }
   }
@@ -153,7 +153,7 @@ export class SecretSantaApp {
     console.log(`[${index}/${total}] Processing ${gifter.name} → ${giftee.name}`);
 
     const message = await this.generateMessage(gifter.name, giftee.name, giftee.description);
-    const imageBuffer = this.skipImages ? Buffer.alloc(0) : await this.generateImage(giftee.description);
+    const imageBuffer = this.shouldSkipImages ? Buffer.alloc(0) : await this.generateImage(giftee.description);
 
     await this.sendOrPreview(gifter, giftee, message, imageBuffer);
   }
@@ -170,7 +170,7 @@ export class SecretSantaApp {
   }
 
   private async generateImage(description: string): Promise<Buffer> {
-    if (this.skipImages) {
+    if (this.shouldSkipImages) {
       console.log(`   🎨 Skipping image generation...`);
       return Buffer.alloc(0);
     }
@@ -186,7 +186,7 @@ export class SecretSantaApp {
     message: string,
     imageBuffer: Buffer
   ): Promise<void> {
-    if (this.dryRun) {
+    if (this.isDryRun) {
       await this.saveToFiles(gifter, giftee, message, imageBuffer);
     } else {
       await this.sendEmail(gifter, giftee, message, imageBuffer);
@@ -224,7 +224,7 @@ Wygenerowano: ${new Date().toLocaleString()}
     console.log(`       Message: ${messageFileName}`);
 
     // Save image only if not skipped
-    if (!this.skipImages && imageBuffer.length > 0) {
+    if (!this.shouldSkipImages && imageBuffer.length > 0) {
       const imageFileName = `${sanitizedName}_image.png`;
       const imageFilePath = path.join(this.outputDir, imageFileName);
       fs.writeFileSync(imageFilePath, imageBuffer);
@@ -261,7 +261,7 @@ Wygenerowano: ${new Date().toLocaleString()}
   private printSuccess(): void {
     console.log('\n═'.repeat(50));
     console.log('✅ Secret Santa completed successfully!');
-    if (this.dryRun) {
+    if (this.isDryRun) {
       console.log('   (Dry run - no emails were sent)');
     }
     console.log('═'.repeat(50));
