@@ -53,7 +53,7 @@ export class EmailService implements IEmailService {
             filename: att.filename,
             type: 'image/png',
             disposition: 'inline',
-            contentId: att.cid,
+            content_id: att.cid,
           }))
           : undefined,
       };
