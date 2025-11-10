@@ -94,20 +94,32 @@ describe('SecretSantaAlgorithm', () => {
 
   describe('Randomization', () => {
     it('should produce different results on multiple runs', () => {
+      // Using 10 participants to have sufficient possible arrangements
+      // For 10 people, there are !10 (subfactorial) ≈ 1.3 million possible derangements
       const participants = createParticipants(10);
 
       const results = new Set<string>();
+      // Running 20 times - with proper randomization, collision probability is extremely low
       const runs = 20;
 
       for (let i = 0; i < runs; i++) {
         const assignments = algorithm.assign(participants);
-        // Create a signature of this assignment
-        const signature = assignments.map(a => `${a.gifter.name}->${a.giftee.name}`).join('|');
+        // Create a canonical signature by sorting the pairs alphabetically
+        // This ensures the same assignment structure always produces the same signature
+        // regardless of the order in which assignments are returned
+        const pairs = assignments
+          .map(a => `${a.gifter.name}->${a.giftee.name}`)
+          .sort();
+        const signature = pairs.join('|');
         results.add(signature);
       }
 
-      // With 10 people, we should get different arrangements most of the time
-      expect(results.size).toBeGreaterThan(1);
+      console.log(results);
+
+      // Expecting at least 19 unique results out of 20 runs
+      // With ~1.3M possible arrangements, getting duplicates is statistically negligible
+      // If we get fewer unique results, it indicates the algorithm is not properly randomized
+      expect(results.size).toBeGreaterThanOrEqual(19);
     });
   });
 

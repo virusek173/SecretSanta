@@ -11,10 +11,9 @@ async function main() {
     const app = new SecretSantaApp(isDryRun, shouldSkipImages);
     await app.run();
   } catch (error) {
+    console.error('Fatal error:', error instanceof Error ? error.message : error);
     process.exit(1);
   }
 }
 
-if (require.main === module) {
-  main();
-}
+main();

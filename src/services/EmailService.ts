@@ -40,7 +40,7 @@ export class EmailService implements IEmailService {
         subject: emailData.subject,
         html: emailData.html,
         // Use provided text version or generate from HTML
-        text: emailData.text || this.htmlToText(emailData.html),
+        text: emailData.text || 'This is a Secret Santa email.',
         // Category helps with tracking and reputation
         categories: ['secret-santa'],
         // Custom headers to improve deliverability
@@ -239,24 +239,6 @@ Miłego przygotowywania prezentu!
 Wiadomość wygenerowana automatycznie przez Secret Santa App
 🎄 Wesołych Świąt! 🎄
     `.trim();
-  }
-
-  /**
-   * Convert HTML to plain text for email clients that don't support HTML
-   */
-  private htmlToText(html: string): string {
-    return html
-      .replace(/<style[^>]*>.*?<\/style>/gs, '')
-      .replace(/<script[^>]*>.*?<\/script>/gs, '')
-      .replace(/<[^>]+>/g, '')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/\n\s*\n\s*\n/g, '\n\n')
-      .trim();
   }
 
   /**
