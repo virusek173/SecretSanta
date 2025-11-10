@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output
+dist/
+
+# Dry-run output
+output/
+
+# Environment variables
+.env
+
+# IDE
+.vscode/
+
+# Config files (keep examples)
+config/participants.json
