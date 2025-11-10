@@ -39,13 +39,38 @@ export class EmailService implements IEmailService {
         replyTo: this.fromAddress,
         subject: emailData.subject,
         html: emailData.html,
-        // Use provided text version or generate from HTML
-        text: emailData.text || 'This is a Secret Santa email.',
+        // Plain text version improves deliverability
+        text: emailData.text || this.stripHtml(emailData.html),
         // Category helps with tracking and reputation
-        categories: ['secret-santa'],
+        categories: ['secret-santa', 'event-notification'],
         // Custom headers to improve deliverability
         headers: {
           'X-Entity-Ref-ID': `secret-santa-${Date.now()}`,
+          'List-Unsubscribe': `<mailto:${this.fromAddress}?subject=unsubscribe>`,
+        },
+        // Mail settings to improve deliverability
+        mailSettings: {
+          bypassListManagement: {
+            enable: false,
+          },
+          footer: {
+            enable: false,
+          },
+          sandboxMode: {
+            enable: false,
+          },
+        },
+        trackingSettings: {
+          clickTracking: {
+            enable: false,
+            enableText: false,
+          },
+          openTracking: {
+            enable: false,
+          },
+          subscriptionTracking: {
+            enable: false,
+          },
         },
         attachments: emailData.attachments && emailData.attachments.length > 0
           ? emailData.attachments.map(att => ({
@@ -93,7 +118,7 @@ export class EmailService implements IEmailService {
 
     const emailData: EmailData = {
       to: gifter.email,
-      subject: '🎅 Twoje losowanie Secret Santa!',
+      subject: 'Secret Santa - Wyniki losowania',
       html: htmlContent,
       text: textContent,
       attachments: hasImage
@@ -121,44 +146,51 @@ export class EmailService implements IEmailService {
   ): string {
     return `
 <!DOCTYPE html>
-<html>
+<html lang="pl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Secret Santa - Wyniki losowania</title>
   <style>
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: Arial, Helvetica, sans-serif;
       line-height: 1.6;
-      color: #333;
-      max-width: 600px;
-      margin: 0 auto;
-      padding: 20px;
-      background-color: #f4f4f4;
+      color: #333333;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 0;
     }
     .container {
-      background-color: white;
-      border-radius: 10px;
-      padding: 30px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      max-width: 600px;
+      margin: 20px auto;
+      background-color: #ffffff;
+      padding: 40px 30px;
     }
     .header {
       text-align: center;
       margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #d32f2f;
     }
     .header h1 {
-      color: #c41e3a;
-      margin: 0;
-      font-size: 28px;
+      color: #d32f2f;
+      margin: 10px 0;
+      font-size: 24px;
     }
-    .header .emoji {
-      font-size: 48px;
+    .greeting {
+      font-size: 16px;
+      margin-bottom: 20px;
+      color: #333333;
     }
-    .message {
-      background-color: #f9f9f9;
-      border-left: 4px solid #c41e3a;
+    .message-box {
+      background-color: #fafafa;
+      border-left: 4px solid #d32f2f;
       padding: 20px;
-      margin: 20px 0;
-      border-radius: 5px;
+      margin: 25px 0;
+    }
+    .message-box p {
+      margin: 10px 0;
+      color: #333333;
     }
     .image-container {
       text-align: center;
@@ -167,51 +199,64 @@ export class EmailService implements IEmailService {
     .image-container img {
       max-width: 100%;
       height: auto;
-      border-radius: 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      display: block;
+      margin: 0 auto;
+    }
+    .reminder {
+      background-color: #fff3cd;
+      border: 1px solid #ffc107;
+      padding: 15px;
+      margin: 25px 0;
+      color: #856404;
     }
     .footer {
       text-align: center;
-      margin-top: 30px;
+      margin-top: 40px;
       padding-top: 20px;
-      border-top: 1px solid #ddd;
-      font-size: 12px;
-      color: #666;
-    }
-    .recipient-name {
-      color: #c41e3a;
-      font-weight: bold;
+      border-top: 1px solid #dddddd;
+      font-size: 13px;
+      color: #666666;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <div class="emoji">🎅🎄🎁</div>
-      <h1>Secret Santa</h1>
+      <h1>🎅 Secret Santa - Wyniki losowania</h1>
     </div>
 
-    <p>Cześć <strong>${gifterName}</strong>!</p>
+    <div class="greeting">
+      <p>Cześć ${gifterName}!</p>
+      <p>Wylosowanie w tegorocznej zabawie Secret Santa zostało zakończone.</p>
+    </div>
 
-    <div class="message">
-      ${message.split('\n').map(line => `<p>${line}</p>`).join('')}
+    <div class="message-box">
+      ${message.split('\n').map(line => `<p>${line || '&nbsp;'}</p>`).join('')}
     </div>
 
     ${hasImage
         ? `
     <div class="image-container">
-      <img src="cid:christmas-image" alt="Christmas illustration" />
+      <img src="cid:christmas-image" alt="Ilustracja świąteczna" />
     </div>
     `
         : ''
       }
 
-    <p>Pamiętaj, że wylosowana osoba to tajemnica! 🤫</p>
-    <p>Miłego przygotowywania prezentu!</p>
+    <div class="reminder">
+      <p><strong>Ważne przypomnienie:</strong></p>
+      <p>Wylosowana osoba to tajemnica! Nie mów nikomu, kogo wylosowałeś.</p>
+      <p>Miłego przygotowywania prezentu i wesołych świąt!</p>
+    </div>
 
     <div class="footer">
-      <p>Wiadomość wygenerowana automatycznie przez Secret Santa App</p>
+      <p>Ta wiadomość została wygenerowana automatycznie w ramach zabawy Secret Santa.</p>
+      <p>Jeśli masz pytania, skontaktuj się z organizatorem.</p>
       <p>🎄 Wesołych Świąt! 🎄</p>
+      <p style="font-size: 11px; color: #999; margin-top: 20px;">
+        Otrzymujesz tę wiadomość, ponieważ bierzesz udział w zabawie Secret Santa.<br>
+        Jeśli nie chcesz otrzymywać więcej wiadomości, skontaktuj się z organizatorem.
+      </p>
     </div>
   </div>
 </body>
@@ -228,20 +273,42 @@ export class EmailService implements IEmailService {
     message: string
   ): string {
     return `
-🎅🎄🎁 Secret Santa 🎁🎄🎅
+SECRET SANTA - WYNIKI LOSOWANIA
 
 Cześć ${gifterName}!
 
+Wylosowanie w tegorocznej zabawie Secret Santa zostało zakończone.
+
 ${message}
 
-Pamiętaj, że wylosowana osoba to tajemnica! 🤫
+WAŻNE PRZYPOMNIENIE:
+Wylosowana osoba to tajemnica! Nie mów nikomu, kogo wylosowałeś.
+Miłego przygotowywania prezentu i wesołych świąt!
 
-Miłego przygotowywania prezentu!
+---
+Ta wiadomość została wygenerowana automatycznie w ramach zabawy Secret Santa.
+Jeśli masz pytania, skontaktuj się z organizatorem.
 
-═══════════════════════════════════════════════════
-Wiadomość wygenerowana automatycznie przez Secret Santa App
+Otrzymujesz tę wiadomość, ponieważ bierzesz udział w zabawie Secret Santa.
+Jeśli nie chcesz otrzymywać więcej wiadomości, skontaktuj się z organizatorem.
+
 🎄 Wesołych Świąt! 🎄
     `.trim();
+  }
+
+  /**
+   * Strip HTML tags for plain text fallback
+   */
+  private stripHtml(html: string): string {
+    return html
+      .replace(/<style[^>]*>.*?<\/style>/gis, '')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   /**
