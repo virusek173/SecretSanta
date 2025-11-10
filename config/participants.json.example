@@ -1,0 +1,29 @@
+{
+  "participants": [
+    {
+      "name": "Anna Kowalska",
+      "email": "anna.kowalska@example.com",
+      "description": "Uwielbia czytać książki fantasy i science fiction, lubi pić herbatę, interesuje się astrologią"
+    },
+    {
+      "name": "Jan Nowak",
+      "email": "jan.nowak@example.com",
+      "description": "Pasjonat technologii i gadżetów, gra na gitarze, fan filmów Marvela"
+    },
+    {
+      "name": "Maria Wiśniewska",
+      "email": "maria.wisniewska@example.com",
+      "description": "Uwielbia gotować i próbować nowych przepisów, lubi rośliny doniczkowe, fan jogi"
+    },
+    {
+      "name": "Piotr Zieliński",
+      "email": "piotr.zielinski@example.com",
+      "description": "Entuzjasta gier planszowych, lubi dobry kryminał, pasjonat fotografii"
+    },
+    {
+      "name": "Katarzyna Dąbrowska",
+      "email": "katarzyna.dabrowska@example.com",
+      "description": "Artystka, maluje akrylami, lubi vintage i sztukę art deco, fanka jazzu"
+    }
+  ]
+}

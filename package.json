@@ -1,0 +1,36 @@
+{
+  "name": "secret-santa",
+  "version": "1.0.0",
+  "description": "Secret Santa gift exchange application with AI-powered messages and images",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "santa": "npm run build && node dist/index.js",
+    "santa:dry-run": "npm run build && node dist/index.js --dry-run",
+    "santa:dry-run-no-images": "npm run build && node dist/index.js --dry-run --no-images",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "dev": "ts-node src/index.ts"
+  },
+  "keywords": ["secret-santa", "gift-exchange", "ai", "openai"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.19",
+    "@types/nodemailer": "^6.4.14",
+    "@types/validator": "^13.11.9",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "nodemailer": "^6.9.10",
+    "openai": "^4.28.0",
+    "validator": "^13.11.0"
+  }
+}
