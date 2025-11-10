@@ -21,7 +21,7 @@ A Secret Santa gift exchange application with AI integration.
 - Node.js >= 18
 - TypeScript
 - OpenAI account with API key
-- SMTP server (e.g., Gmail) for sending emails
+- SendGrid account (free tier: 100 emails/day)
 
 ## 🚀 Installation
 
@@ -44,13 +44,17 @@ cp .env.example .env
 Fill in the `.env` file with your credentials:
 ```env
 OPENAI_API_KEY=sk-...
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=your_email@gmail.com
-SMTP_PASS=your_app_password
-SMTP_FROM=Secret Santa <your_email@gmail.com>
+SENDGRID_API_KEY=SG.your_sendgrid_api_key_here
+SENDGRID_FROM=your_verified_email@example.com
 ```
+
+**Getting SendGrid API Key:**
+1. Sign up for a free SendGrid account at https://sendgrid.com/free (100 emails/day forever free)
+2. Go to Settings → API Keys → Create API Key
+3. Choose "Full Access" or "Mail Send" permissions
+4. Copy the API key (it only shows once!)
+5. **Verify your sender:**
+   - **Option A (Quick):** Settings → Sender Authentication → Verify Single Sender
 
 4. Create participants file:
 ```bash

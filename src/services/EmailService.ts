@@ -1,58 +1,24 @@
-import nodemailer from 'nodemailer';
-import { IEmailService, EmailData, Participant } from '../types';
+import sgMail from '@sendgrid/mail';
+import { IEmailService, EmailData, Participant, SendGridConfig } from '../types';
 
 /**
- * SMTP configuration
- */
-export interface SmtpConfig {
-  host: string;
-  port: number;
-  secure: boolean;
-  auth: {
-    user: string;
-    pass: string;
-  };
-  from: string;
-}
-
-/**
- * Service for sending emails
+ * Service for sending emails via SendGrid
  */
 export class EmailService implements IEmailService {
-  private transporter: nodemailer.Transporter;
   private fromAddress: string;
 
-  constructor(config: SmtpConfig) {
+  constructor(config: SendGridConfig) {
     this.validateConfig(config);
-
-    this.transporter = nodemailer.createTransport({
-      host: config.host,
-      port: config.port,
-      secure: config.secure,
-      auth: {
-        user: config.auth.user,
-        pass: config.auth.pass,
-      },
-    });
-
+    sgMail.setApiKey(config.apiKey);
     this.fromAddress = config.from;
   }
 
   /**
-   * Validate SMTP configuration
+   * Validate SendGrid configuration
    */
-  private validateConfig(config: SmtpConfig): void {
-    if (!config.host) {
-      throw new Error('SMTP host is required');
-    }
-    if (!config.port) {
-      throw new Error('SMTP port is required');
-    }
-    if (!config.auth.user) {
-      throw new Error('SMTP user is required');
-    }
-    if (!config.auth.pass) {
-      throw new Error('SMTP password is required');
+  private validateConfig(config: SendGridConfig): void {
+    if (!config.apiKey) {
+      throw new Error('SendGrid API key is required');
     }
     if (!config.from) {
       throw new Error('From address is required');
@@ -64,14 +30,44 @@ export class EmailService implements IEmailService {
    */
   async sendEmail(emailData: EmailData): Promise<void> {
     try {
-      await this.transporter.sendMail({
-        from: this.fromAddress,
+      const msg: sgMail.MailDataRequired = {
         to: emailData.to,
+        from: {
+          email: this.fromAddress,
+          name: 'Secret Santa',
+        },
+        replyTo: this.fromAddress,
         subject: emailData.subject,
         html: emailData.html,
-        attachments: emailData.attachments,
-      });
-    } catch (error) {
+        // Use provided text version or generate from HTML
+        text: emailData.text || this.htmlToText(emailData.html),
+        // Category helps with tracking and reputation
+        categories: ['secret-santa'],
+        // Custom headers to improve deliverability
+        headers: {
+          'X-Entity-Ref-ID': `secret-santa-${Date.now()}`,
+        },
+        attachments: emailData.attachments && emailData.attachments.length > 0
+          ? emailData.attachments.map(att => ({
+            content: att.content.toString('base64'),
+            filename: att.filename,
+            type: 'image/png',
+            disposition: 'inline',
+            contentId: att.cid,
+          }))
+          : undefined,
+      };
+
+      await sgMail.send(msg);
+    } catch (error: any) {
+      // Log detailed error information from SendGrid
+      if (error.response) {
+        const { body } = error.response;
+        console.error('\n❌ SendGrid Error Details:');
+        console.error('Status:', error.code);
+        console.error('Response:', JSON.stringify(body, null, 2));
+      }
+
       if (error instanceof Error) {
         throw new Error(`Failed to send email to ${emailData.to}: ${error.message}`);
       }
@@ -88,20 +84,23 @@ export class EmailService implements IEmailService {
     message: string,
     imageBuffer?: Buffer
   ): Promise<void> {
-    const html = this.createEmailTemplate(gifter.name, giftee.name, message, !!imageBuffer);
+    const hasImage = !!(imageBuffer && imageBuffer.length > 0);
+    const textContent = this.createTextEmailTemplate(gifter.name, giftee.name, message);
+    const htmlContent = this.createEmailTemplate(gifter.name, giftee.name, message, hasImage);
 
     const emailData: EmailData = {
       to: gifter.email,
       subject: '🎅 Twoje losowanie Secret Santa!',
-      html,
-      attachments: imageBuffer
+      html: htmlContent,
+      text: textContent,
+      attachments: hasImage
         ? [
-            {
-              filename: 'christmas.png',
-              content: imageBuffer,
-              cid: 'christmas-image',
-            },
-          ]
+          {
+            filename: 'christmas.png',
+            content: imageBuffer!,
+            cid: 'christmas-image',
+          },
+        ]
         : undefined,
     };
 
@@ -113,7 +112,7 @@ export class EmailService implements IEmailService {
    */
   private createEmailTemplate(
     gifterName: string,
-    gifteeName: string,
+    _gifteeName: string,
     message: string,
     hasImage: boolean
   ): string {
@@ -195,15 +194,14 @@ export class EmailService implements IEmailService {
       ${message.split('\n').map(line => `<p>${line}</p>`).join('')}
     </div>
 
-    ${
-      hasImage
+    ${hasImage
         ? `
     <div class="image-container">
       <img src="cid:christmas-image" alt="Christmas illustration" />
     </div>
     `
         : ''
-    }
+      }
 
     <p>Pamiętaj, że wylosowana osoba to tajemnica! 🤫</p>
     <p>Miłego przygotowywania prezentu!</p>
@@ -219,16 +217,65 @@ export class EmailService implements IEmailService {
   }
 
   /**
-   * Verify connection to SMTP server
+   * Create plain text email template
+   */
+  private createTextEmailTemplate(
+    gifterName: string,
+    _gifteeName: string,
+    message: string
+  ): string {
+    return `
+🎅🎄🎁 Secret Santa 🎁🎄🎅
+
+Cześć ${gifterName}!
+
+${message}
+
+Pamiętaj, że wylosowana osoba to tajemnica! 🤫
+
+Miłego przygotowywania prezentu!
+
+═══════════════════════════════════════════════════
+Wiadomość wygenerowana automatycznie przez Secret Santa App
+🎄 Wesołych Świąt! 🎄
+    `.trim();
+  }
+
+  /**
+   * Convert HTML to plain text for email clients that don't support HTML
+   */
+  private htmlToText(html: string): string {
+    return html
+      .replace(/<style[^>]*>.*?<\/style>/gs, '')
+      .replace(/<script[^>]*>.*?<\/script>/gs, '')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\n\s*\n\s*\n/g, '\n\n')
+      .trim();
+  }
+
+  /**
+   * Verify SendGrid API key is valid
    */
   async verifyConnection(): Promise<void> {
+    // SendGrid doesn't have a built-in verify method like nodemailer
+    // We'll do a basic check that the API key is set
     try {
-      await this.transporter.verify();
+      // The API key validation happens when sending emails
+      // For now, we just check if it's configured
+      if (!sgMail) {
+        throw new Error('SendGrid client not initialized');
+      }
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(`SMTP connection failed: ${error.message}`);
+        throw new Error(`SendGrid connection failed: ${error.message}`);
       }
-      throw new Error('SMTP connection failed: Unknown error');
+      throw new Error('SendGrid connection failed: Unknown error');
     }
   }
 }

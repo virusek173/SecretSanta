@@ -7,6 +7,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "santa": "npm run build && node dist/index.js",
+    "santa:no-images": "npm run build && node dist/index.js --no-images",
     "santa:dry-run": "npm run build && node dist/index.js --dry-run",
     "santa:dry-run-no-images": "npm run build && node dist/index.js --dry-run --no-images",
     "test": "jest",
@@ -14,7 +15,12 @@
     "test:coverage": "jest --coverage",
     "dev": "ts-node src/index.ts"
   },
-  "keywords": ["secret-santa", "gift-exchange", "ai", "openai"],
+  "keywords": [
+    "secret-santa",
+    "gift-exchange",
+    "ai",
+    "openai"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
@@ -28,8 +34,8 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
     "dotenv": "^16.4.5",
-    "nodemailer": "^6.9.10",
     "openai": "^4.28.0",
     "validator": "^13.11.0"
   }

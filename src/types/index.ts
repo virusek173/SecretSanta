@@ -38,6 +38,7 @@ export interface EmailData {
   to: string;
   subject: string;
   html: string;
+  text?: string;
   attachments?: Array<{
     filename: string;
     content: Buffer;
@@ -79,4 +80,12 @@ export interface IConfigLoader {
  */
 export interface SecretSantaOptions {
   dryRun?: boolean;
+}
+
+/**
+ * SendGrid email service configuration
+ */
+export interface SendGridConfig {
+  apiKey: string;
+  from: string;
 }

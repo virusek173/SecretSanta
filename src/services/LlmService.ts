@@ -67,7 +67,7 @@ export class LlmService implements ILlmService {
     return `Napisz krótką, ciepłą wiadomość Secret Santa (3-4 zdania) dla ${gifterName}, który wylosował ${gifteeName}.
 
 Wiadomość powinna:
-- Poinformować ${gifterName}, że został wylosowany jako Secret Santa dla ${gifteeName}
+- Poinformować ${gifterName}, że został Secret Santa dla ${gifteeName}
 - Zasugerować kreatywny pomysł na prezent bazując na zainteresowaniach: ${gifteeDescription}
 
 Ton: przyjazny, świąteczny, entuzjastyczny. Pisz w sposób naturalny i osobisty.`;

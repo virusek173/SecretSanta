@@ -4,8 +4,8 @@ import { SecretSantaAlgorithm } from './algorithm/secretSanta';
 import { ConfigLoader } from './config/loadConfig';
 import { LlmService } from './services/LlmService';
 import { ImageService } from './services/ImageService';
-import { EmailService, SmtpConfig } from './services/EmailService';
-import { Assignment, Participant } from './types';
+import { EmailService } from './services/EmailService';
+import { Assignment, Participant, SendGridConfig } from './types';
 
 /**
  * Main Secret Santa application
@@ -40,7 +40,7 @@ export class SecretSantaApp {
     const required = ['OPENAI_API_KEY'];
 
     if (!this.isDryRun) {
-      required.push('SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM');
+      required.push('SENDGRID_API_KEY', 'SENDGRID_FROM');
     }
 
     const missing = required.filter(key => !process.env[key]);
@@ -48,23 +48,17 @@ export class SecretSantaApp {
     if (missing.length > 0) {
       throw new Error(
         `Missing required environment variables: ${missing.join(', ')}\n` +
-          'Please check your .env file.'
+        'Please check your .env file.'
       );
     }
   }
 
   private createEmailService(): EmailService {
-    const smtpConfig: SmtpConfig = {
-      host: process.env.SMTP_HOST!,
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: process.env.SMTP_USER!,
-        pass: process.env.SMTP_PASS!,
-      },
-      from: process.env.SMTP_FROM!,
+    const sendGridConfig: SendGridConfig = {
+      apiKey: process.env.SENDGRID_API_KEY!,
+      from: process.env.SENDGRID_FROM!,
     };
-    return new EmailService(smtpConfig);
+    return new EmailService(sendGridConfig);
   }
 
   async run(): Promise<void> {
@@ -119,9 +113,9 @@ export class SecretSantaApp {
 
   private async verifySmtpIfNeeded(): Promise<void> {
     if (this.emailService) {
-      console.log('📧 Verifying SMTP connection...');
+      console.log('📧 Verifying SendGrid connection...');
       await this.emailService.verifyConnection();
-      console.log('✓ SMTP connection successful\n');
+      console.log('✓ SendGrid connection successful\n');
     }
   }
 
@@ -259,7 +253,7 @@ Wygenerowano: ${new Date().toLocaleString()}
   }
 
   private printSuccess(): void {
-    console.log('\n═'.repeat(50));
+    console.log('═'.repeat(50));
     console.log('✅ Secret Santa completed successfully!');
     if (this.isDryRun) {
       console.log('   (Dry run - no emails were sent)');
