@@ -113,9 +113,15 @@ node dist/index.js --dry-run
 # Skip images only (still sends emails)
 node dist/index.js --no-images
 
-# Both flags together
-node dist/index.js --dry-run --no-images
+# Encrypt names in console logs for privacy
+node dist/index.js --encrypt-logs
+
+# Combine multiple flags
+node dist/index.js --dry-run --no-images --encrypt-logs
 ```
+
+**Privacy Option:**
+The `--encrypt-logs` flag masks participant names and emails in console output for privacy. Names are replaced with consistent hashes like `[USER-A1B2C3D4]`, and a mapping is shown at the end for reference.
 
 ### Tests:
 ```bash
@@ -188,11 +194,12 @@ npm test
 - Credentials stored in `.env` (not committed)
 - Email address validation before sending
 - Rate limiting between API calls (2s delay)
-- Assignment results are not logged in plain text
+- Optional log encryption (`--encrypt-logs`) to mask participant names in console output
 - All errors are handled and logged
 
 ## 📝 Example Output
 
+### Normal mode:
 ```
 🎅 Secret Santa Application
 ══════════════════════════════════════════════════
@@ -217,6 +224,41 @@ npm test
 
 ══════════════════════════════════════════════════
 ✅ Secret Santa completed successfully!
+══════════════════════════════════════════════════
+```
+
+### With `--encrypt-logs`:
+```
+🎅 Secret Santa Application
+══════════════════════════════════════════════════
+🔒 ENCRYPTED LOGS MODE - Names will be masked in logs
+
+📂 Loading configuration...
+✓ Loaded 5 participants
+
+🎲 Performing Secret Santa assignment...
+✓ Created 5 assignments
+
+📨 Processing assignments...
+
+[1/5] Processing [USER-A1B2C3D4] → [USER-E5F6G7H8]
+   🤖 Generating message...
+   ✓ Message generated
+   🎨 Generating image...
+   ✓ Image generated
+   📧 Sending email to ***@a1b2c3d4.masked...
+   ✓ Email sent successfully
+   ⏳ Waiting 2s before next request...
+
+...
+
+══════════════════════════════════════════════════
+✅ Secret Santa completed successfully!
+
+🔑 Encryption Mapping (for reference):
+   Anna Kowalska → [USER-A1B2C3D4]
+   Jan Nowak → [USER-E5F6G7H8]
+   ...
 ══════════════════════════════════════════════════
 ```
 

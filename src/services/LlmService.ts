@@ -35,7 +35,7 @@ export class LlmService implements ILlmService {
         messages: [
           {
             role: 'system',
-            content: 'Jesteś pomocnym asystentem, który pisze ciepłe, świąteczne wiadomości Secret Santa po polsku.',
+            content: 'Jesteś pomocnym asystentem, który pisze ciepłe, świąteczne wiadomości Secret Santa po polsku. Nie używaj formatowania markdown, takiego jak **pogrubienie**, *kursywa* lub inne znaki specjalne w celu podkreślenia. Używaj wyłącznie zwykłego tekstu.',
           },
           {
             role: 'user',

@@ -5,6 +5,7 @@ import { ConfigLoader } from './config/loadConfig';
 import { LlmService } from './services/LlmService';
 import { ImageService } from './services/ImageService';
 import { EmailService } from './services/EmailService';
+import { LogEncryption } from './utils/encryption';
 import { Assignment, Participant, SendGridConfig } from './types';
 
 /**
@@ -18,11 +19,15 @@ export class SecretSantaApp {
   private emailService: EmailService | null;
   private isDryRun: boolean;
   private shouldSkipImages: boolean;
+  private shouldEncryptLogs: boolean;
+  private logEncryption: LogEncryption | null;
   private outputDir: string;
 
-  constructor(isDryRun: boolean = false, shouldSkipImages: boolean = false) {
+  constructor(isDryRun: boolean = false, shouldSkipImages: boolean = false, shouldEncryptLogs: boolean = false) {
     this.isDryRun = isDryRun;
     this.shouldSkipImages = shouldSkipImages;
+    this.shouldEncryptLogs = shouldEncryptLogs;
+    this.logEncryption = shouldEncryptLogs ? new LogEncryption() : null;
     this.outputDir = path.join(process.cwd(), 'output');
     this.algorithm = new SecretSantaAlgorithm();
     this.configLoader = new ConfigLoader();
@@ -99,7 +104,10 @@ export class SecretSantaApp {
     if (this.shouldSkipImages) {
       console.log('⚠️  SKIP IMAGES MODE - No images will be generated');
     }
-    if (this.isDryRun || this.shouldSkipImages) {
+    if (this.shouldEncryptLogs) {
+      console.log('🔒 ENCRYPTED LOGS MODE - Names will be masked in logs');
+    }
+    if (this.isDryRun || this.shouldSkipImages || this.shouldEncryptLogs) {
       console.log('');
     }
   }
@@ -144,7 +152,10 @@ export class SecretSantaApp {
     total: number
   ): Promise<void> {
     const { gifter, giftee } = assignment;
-    console.log(`[${index}/${total}] Processing ${gifter.name} → ${giftee.name}`);
+    const gifterDisplay = this.formatNameForLog(gifter.name);
+    const gifteeDisplay = this.formatNameForLog(giftee.name);
+
+    console.log(`[${index}/${total}] Processing ${gifterDisplay} → ${gifteeDisplay}`);
 
     const message = await this.generateMessage(gifter.name, giftee.name, giftee.description);
     const imageBuffer = this.shouldSkipImages ? Buffer.alloc(0) : await this.generateImage(giftee.description);
@@ -234,7 +245,8 @@ Wygenerowano: ${new Date().toLocaleString()}
     message: string,
     imageBuffer: Buffer
   ): Promise<void> {
-    console.log(`   📧 Sending email to ${gifter.email}...`);
+    const emailDisplay = this.formatEmailForLog(gifter.email);
+    console.log(`   📧 Sending email to ${emailDisplay}...`);
     await this.emailService!.sendSecretSantaEmail(gifter, giftee, message, imageBuffer);
     console.log(`   ✓ Email sent successfully`);
   }
@@ -244,6 +256,20 @@ Wygenerowano: ${new Date().toLocaleString()}
       .split('\n')
       .map(line => `       ${line}`)
       .join('\n');
+  }
+
+  private formatNameForLog(name: string): string {
+    if (this.logEncryption) {
+      return this.logEncryption.encryptName(name);
+    }
+    return name;
+  }
+
+  private formatEmailForLog(email: string): string {
+    if (this.logEncryption) {
+      return this.logEncryption.encryptEmail(email);
+    }
+    return email;
   }
 
   private async delayBetweenRequests(): Promise<void> {
@@ -258,6 +284,16 @@ Wygenerowano: ${new Date().toLocaleString()}
     if (this.isDryRun) {
       console.log('   (Dry run - no emails were sent)');
     }
+
+    // Print encryption mapping if logs were encrypted
+    if (this.shouldEncryptLogs && this.logEncryption) {
+      console.log('\n🔑 Encryption Mapping (for reference):');
+      const mapping = this.logEncryption.getMapping();
+      Object.entries(mapping).forEach(([original, encrypted]) => {
+        console.log(`   ${original} → ${encrypted}`);
+      });
+    }
+
     console.log('═'.repeat(50));
   }
 }
