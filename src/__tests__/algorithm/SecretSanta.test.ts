@@ -1,4 +1,4 @@
-import { SecretSantaAlgorithm } from '../../algorithm/secretSanta';
+import { SecretSantaAlgorithm } from '../../algorithm/SecretSanta';
 import { Participant } from '../../types';
 
 describe('SecretSantaAlgorithm', () => {

@@ -9,6 +9,7 @@
     "santa": "npm run build && node dist/index.js",
     "santa:no-images": "npm run build && node dist/index.js --no-images",
     "santa:dry-run": "npm run build && node dist/index.js --dry-run",
+    "santa:encrypt-logs": "npm run build && node dist/index.js --encrypt-logs",
     "santa:dry-run-no-images": "npm run build && node dist/index.js --dry-run --no-images",
     "test": "jest",
     "test:watch": "jest --watch",

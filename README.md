@@ -147,7 +147,7 @@ npm run lint:fix      # Auto-fix linting issues
 SecretSanta/
 ├── src/
 │   ├── algorithm/
-│   │   └── secretSanta.ts         # Assignment algorithm
+│   │   └── SecretSanta.ts         # Assignment algorithm
 │   ├── services/
 │   │   ├── EmailService.ts        # Email sending (SendGrid)
 │   │   ├── LlmService.ts          # Message generation (OpenAI)
@@ -161,7 +161,7 @@ SecretSanta/
 │   │   └── loadConfig.ts          # Configuration loading
 │   ├── __tests__/
 │   │   ├── algorithm/
-│   │   │   └── secretSanta.test.ts # Algorithm tests
+│   │   │   └── SecretSanta.test.ts # Algorithm tests
 │   │   └── utils/
 │   │       └── encryption.test.ts  # Encryption tests
 │   ├── SecretSantaApp.ts          # Main application

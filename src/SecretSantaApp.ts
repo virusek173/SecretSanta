@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { SecretSantaAlgorithm } from './algorithm/secretSanta';
+import { SecretSantaAlgorithm } from './algorithm/SecretSanta';
 import { ConfigLoader } from './config/loadConfig';
 import { LlmService } from './services/LlmService';
 import { ImageService } from './services/ImageService';
