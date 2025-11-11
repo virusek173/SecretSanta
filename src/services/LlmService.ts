@@ -64,10 +64,12 @@ export class LlmService implements ILlmService {
    * Create the prompt for OpenAI
    */
   private createPrompt(gifterName: string, gifteeName: string, gifteeDescription: string): string {
-    return `Napisz krótką, ciepłą wiadomość Secret Santa (3-4 zdania) dla ${gifterName}, który wylosował ${gifteeName}.
+    return `Napisz krótką, ciepłą wiadomość Secret Santa dla ${gifterName}, który wylosował ${gifteeName}.
 
 Wiadomość powinna:
 - Poinformować ${gifterName}, że został Secret Santa dla ${gifteeName}
+- Zawierać elementy wprowadzające w klimat świąt Bożego Narodzenia
+- Dodaj jakieś zabawne lub urocze odniesienie do opisu wylosowanej osoby
 - Zasugerować kreatywny pomysł na prezent bazując na zainteresowaniach: ${gifteeDescription}
 
 Ton: przyjazny, świąteczny, entuzjastyczny. Pisz w sposób naturalny i osobisty.`;

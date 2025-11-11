@@ -34,7 +34,7 @@ export class EmailService implements IEmailService {
         to: emailData.to,
         from: {
           email: this.fromAddress,
-          name: 'Secret Santa',
+          name: 'Święty Mikołaj',
         },
         replyTo: this.fromAddress,
         subject: emailData.subject,
@@ -118,7 +118,7 @@ export class EmailService implements IEmailService {
 
     const emailData: EmailData = {
       to: gifter.email,
-      subject: 'Secret Santa - Wyniki losowania',
+      subject: '🎁 Wyniki losowania prezentów',
       html: htmlContent,
       text: textContent,
       attachments: hasImage
@@ -150,7 +150,7 @@ export class EmailService implements IEmailService {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Secret Santa - Wyniki losowania</title>
+  <title>Święty Mikołaj - Wyniki losowania prezentów</title>
   <style>
     body {
       font-family: Arial, Helvetica, sans-serif;
@@ -222,12 +222,11 @@ export class EmailService implements IEmailService {
 <body>
   <div class="container">
     <div class="header">
-      <h1>🎅 Secret Santa - Wyniki losowania</h1>
+      <h1>🎅 Święty Mikołaj - Wyniki losowania prezentów 🎁</h1>
     </div>
 
     <div class="greeting">
       <p>Cześć ${gifterName}!</p>
-      <p>Wylosowanie w tegorocznej zabawie Secret Santa zostało zakończone.</p>
     </div>
 
     <div class="message-box">
@@ -273,11 +272,9 @@ export class EmailService implements IEmailService {
     message: string
   ): string {
     return `
-SECRET SANTA - WYNIKI LOSOWANIA
+ŚWIĘTY MIKOŁAJ
 
 Cześć ${gifterName}!
-
-Wylosowanie w tegorocznej zabawie Secret Santa zostało zakończone.
 
 ${message}
 
@@ -288,9 +285,6 @@ Miłego przygotowywania prezentu i wesołych świąt!
 ---
 Ta wiadomość została wygenerowana automatycznie w ramach zabawy Secret Santa.
 Jeśli masz pytania, skontaktuj się z organizatorem.
-
-Otrzymujesz tę wiadomość, ponieważ bierzesz udział w zabawie Secret Santa.
-Jeśli nie chcesz otrzymywać więcej wiadomości, skontaktuj się z organizatorem.
 
 🎄 Wesołych Świąt! 🎄
     `.trim();

@@ -114,8 +114,6 @@ describe('SecretSantaAlgorithm', () => {
         results.add(signature);
       }
 
-      console.log(results);
-
       // Expecting at least 19 unique results out of 20 runs
       // With ~1.3M possible arrangements, getting duplicates is statistically negligible
       // If we get fewer unique results, it indicates the algorithm is not properly randomized
