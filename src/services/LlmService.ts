@@ -6,7 +6,7 @@ import { ILlmService } from '../types';
  */
 export class LlmService implements ILlmService {
   private openai: OpenAI;
-  private model: string = 'gpt-4o-mini';
+  private model: string = 'gpt-5-chat-latest';
 
   constructor(apiKey: string) {
     if (!apiKey) {
@@ -42,8 +42,6 @@ export class LlmService implements ILlmService {
             content: prompt,
           },
         ],
-        temperature: 0.8,
-        max_tokens: 300,
       });
 
       const message = response.choices[0]?.message?.content?.trim();
