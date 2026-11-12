@@ -359,7 +359,7 @@ export class SecretSantaApp {
     fs.mkdirSync(this.outputDir, { recursive: true });
 
     for (const entry of state.entries) {
-      const baseName = entry.gifter.name.replace(/[^a-z0-9]/gi, '_');
+      const baseName = entry.gifter.name.replace(/[^\p{L}\p{N}]/gu, '_');
       const content = `Do: ${entry.gifter.name} <${entry.gifter.email}>
 Temat: Twoje losowanie Secret Santa
 
