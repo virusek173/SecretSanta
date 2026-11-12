@@ -26,6 +26,8 @@ export interface AppOptions {
   generationDelayMs?: number;
   /** Discard an interrupted draw and start a new one */
   fresh?: boolean;
+  /** Participants file; defaults to config/participants.json */
+  participantsPath?: string;
   /** Send without asking for confirmation after the verification report */
   yes?: boolean;
 }
@@ -46,7 +48,7 @@ const DEFAULT_GENERATION_DELAY_MS = 1000;
  */
 export class SecretSantaApp {
   private algorithm = new SecretSantaAlgorithm();
-  private configLoader = new ConfigLoader();
+  private configLoader: ConfigLoader;
   private stateStore: StateStore;
   private llmService: LlmService;
   private imageService: ImageService;
@@ -67,6 +69,7 @@ export class SecretSantaApp {
     }
 
     this.stateStore = stateStore;
+    this.configLoader = new ConfigLoader(options.participantsPath);
     this.logEncryption = options.encryptLogs ? new LogEncryption() : null;
 
     this.validateEnv();

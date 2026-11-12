@@ -10,6 +10,7 @@ const OPTIONS: Record<string, string> = {
   '--resume': 'Continue the unfinished draw saved in state/',
   '--fresh': 'Discard the unfinished draw and draw again',
   '--yes': 'Send without the [y/N] confirmation (required without a terminal)',
+  '--participants <file>': 'Participants file (default: config/participants.json)',
   '--help': 'Show this help',
 };
 
@@ -18,7 +19,7 @@ const HELP = `Usage: node dist/index.js [options]
 Runs the draw, generates messages and images, then emails every participant.
 
 Options:
-${Object.entries(OPTIONS).map(([flag, text]) => `  ${flag.padEnd(16)}${text}`).join('\n')}
+${Object.entries(OPTIONS).map(([flag, text]) => `  ${flag.padEnd(24)}${text}`).join('\n')}
 
 Exit code: 0 on success or when sending was declined, 1 on any error.`;
 
@@ -30,7 +31,19 @@ async function main() {
     return;
   }
 
-  const unknown = args.filter(arg => !(arg in OPTIONS));
+  let participantsPath: string | undefined;
+  const pathIndex = args.indexOf('--participants');
+  if (pathIndex !== -1) {
+    participantsPath = args[pathIndex + 1];
+    if (!participantsPath || participantsPath.startsWith('--')) {
+      console.error('--participants requires a file path');
+      process.exit(1);
+    }
+    args.splice(pathIndex, 2);
+  }
+
+  const flags = Object.keys(OPTIONS).map(option => option.split(' ')[0]);
+  const unknown = args.filter(arg => !flags.includes(arg));
   if (unknown.length > 0) {
     console.error(`Unknown option(s): ${unknown.join(', ')}\n\n${HELP}`);
     process.exit(1);
@@ -44,6 +57,7 @@ async function main() {
       resume: args.includes('--resume'),
       fresh: args.includes('--fresh'),
       yes: args.includes('--yes'),
+      participantsPath,
     });
     await app.run();
   } catch (error) {
