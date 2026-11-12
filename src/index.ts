@@ -1,7 +1,7 @@
 import * as dotenv from 'dotenv';
 import { SecretSantaApp } from './SecretSantaApp';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 async function main() {
   const isDryRun = process.argv.includes('--dry-run');
