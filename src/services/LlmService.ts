@@ -76,5 +76,7 @@ Wiadomość powinna:
 - Zawierać zabawne lub urocze odniesienie do opisu wylosowanej osoby
 - Zasugerować kreatywny pomysł na prezent bazując na zainteresowaniach: ${gifteeDescription}
 
+Wiadomość trafi do maila, który ma już własne powitanie. Zacznij więc od razu od świątecznego ogłoszenia losowania, a zakończ życzeniami bez podpisu.
+
 Ton: przyjazny, świąteczny, entuzjastyczny. Pisz w sposób naturalny i osobisty.`;
 }
