@@ -32,6 +32,15 @@ export interface AIContent {
 }
 
 /**
+ * Image produced by the image model
+ */
+export interface GeneratedImage {
+  data: Buffer;
+  mimeType: string;
+  extension: string;
+}
+
+/**
  * Email data to be sent
  */
 export interface EmailData {
@@ -42,6 +51,7 @@ export interface EmailData {
   attachments?: Array<{
     filename: string;
     content: Buffer;
+    contentType: string;
     cid: string;
   }>;
 }
@@ -58,7 +68,7 @@ export interface ILlmService {
 }
 
 export interface IImageService {
-  generateImage(gifteeDescription: string): Promise<Buffer>;
+  generateImage(gifteeDescription: string): Promise<GeneratedImage>;
 }
 
 export interface IEmailService {

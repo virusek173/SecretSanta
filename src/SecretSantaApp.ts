@@ -36,7 +36,7 @@ export class SecretSantaApp {
 
     const openaiApiKey = process.env.OPENAI_API_KEY!;
     this.llmService = new LlmService(openaiApiKey, process.env.OPENAI_TEXT_MODEL || undefined);
-    this.imageService = new ImageService(openaiApiKey);
+    this.imageService = new ImageService(openaiApiKey, process.env.OPENAI_IMAGE_MODEL || undefined);
 
     this.emailService = isDryRun ? null : this.createEmailService();
   }
@@ -180,7 +180,7 @@ export class SecretSantaApp {
       return Buffer.alloc(0);
     }
     console.log(`   🎨 Generating image...`);
-    const imageBuffer = await this.imageService.generateImage(description);
+    const { data: imageBuffer } = await this.imageService.generateImage(description);
     console.log(`   ✓ Image generated`);
     return imageBuffer;
   }
@@ -230,7 +230,7 @@ Wygenerowano: ${new Date().toLocaleString()}
 
     // Save image only if not skipped
     if (!this.shouldSkipImages && imageBuffer.length > 0) {
-      const imageFileName = `${sanitizedName}_image.png`;
+      const imageFileName = `${sanitizedName}_image.jpg`;
       const imageFilePath = path.join(this.outputDir, imageFileName);
       fs.writeFileSync(imageFilePath, imageBuffer);
       console.log(`       Image: ${imageFileName}`);

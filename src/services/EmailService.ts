@@ -76,7 +76,7 @@ export class EmailService implements IEmailService {
           ? emailData.attachments.map(att => ({
             content: att.content.toString('base64'),
             filename: att.filename,
-            type: 'image/png',
+            type: att.contentType,
             disposition: 'inline',
             content_id: att.cid,
           }))
@@ -124,7 +124,8 @@ export class EmailService implements IEmailService {
       attachments: hasImage
         ? [
           {
-            filename: 'christmas.png',
+            filename: 'christmas.jpg',
+            contentType: 'image/jpeg',
             content: imageBuffer!,
             cid: 'christmas-image',
           },
