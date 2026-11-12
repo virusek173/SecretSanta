@@ -1,19 +1,28 @@
 import OpenAI from 'openai';
 import { ILlmService } from '../types';
 
+export const DEFAULT_TEXT_MODEL = 'gpt-5.6-terra';
+
+const SYSTEM_PROMPT =
+  'Jesteś pomocnym asystentem, który pisze ciepłe, świąteczne wiadomości Secret Santa po polsku. ' +
+  'Dobieraj formy gramatyczne (rodzaj męski lub żeński) do imion osób, o których piszesz. ' +
+  'Nie używaj formatowania markdown, takiego jak **pogrubienie**, *kursywa* lub inne znaki specjalne ' +
+  'w celu podkreślenia. Używaj wyłącznie zwykłego tekstu.';
+
 /**
  * Service for generating AI-powered messages using OpenAI API
  */
 export class LlmService implements ILlmService {
   private openai: OpenAI;
-  private model: string = 'gpt-5-chat-latest';
+  private model: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, model: string = DEFAULT_TEXT_MODEL) {
     if (!apiKey) {
       throw new Error('OpenAI API key is required');
     }
 
     this.openai = new OpenAI({ apiKey });
+    this.model = model;
   }
 
   /**
@@ -27,20 +36,15 @@ export class LlmService implements ILlmService {
     gifteeName: string,
     gifteeDescription: string
   ): Promise<string> {
-    const prompt = this.createPrompt(gifterName, gifteeName, gifteeDescription);
+    const prompt = createPrompt(gifterName, gifteeName, gifteeDescription);
 
     try {
       const response = await this.openai.chat.completions.create({
         model: this.model,
+        reasoning_effort: 'low',
         messages: [
-          {
-            role: 'system',
-            content: 'Jesteś pomocnym asystentem, który pisze ciepłe, świąteczne wiadomości Secret Santa po polsku. Nie używaj formatowania markdown, takiego jak **pogrubienie**, *kursywa* lub inne znaki specjalne w celu podkreślenia. Używaj wyłącznie zwykłego tekstu.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: prompt },
         ],
       });
 
@@ -57,26 +61,19 @@ export class LlmService implements ILlmService {
       throw new Error('Failed to generate message: Unknown error');
     }
   }
+}
 
-  /**
-   * Create the prompt for OpenAI
-   */
-  private createPrompt(gifterName: string, gifteeName: string, gifteeDescription: string): string {
-    return `Napisz krótką, ciepłą wiadomość Secret Santa dla ${gifterName}, który wylosował ${gifteeName}.
+/**
+ * Create the user prompt for OpenAI
+ */
+export function createPrompt(gifterName: string, gifteeName: string, gifteeDescription: string): string {
+  return `Napisz krótką, ciepłą wiadomość Secret Santa do osoby o imieniu ${gifterName}, która wylosowała osobę o imieniu ${gifteeName}.
 
 Wiadomość powinna:
-- Poinformować ${gifterName}, że został Secret Santa dla ${gifteeName}
+- Poinformować ${gifterName}, że jest Secret Santa dla ${gifteeName}
 - Zawierać elementy wprowadzające w klimat świąt Bożego Narodzenia
-- Dodaj jakieś zabawne lub urocze odniesienie do opisu wylosowanej osoby
+- Zawierać zabawne lub urocze odniesienie do opisu wylosowanej osoby
 - Zasugerować kreatywny pomysł na prezent bazując na zainteresowaniach: ${gifteeDescription}
 
 Ton: przyjazny, świąteczny, entuzjastyczny. Pisz w sposób naturalny i osobisty.`;
-  }
-
-  /**
-   * Add delay to avoid rate limiting
-   */
-  async delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
 }

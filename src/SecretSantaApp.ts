@@ -35,7 +35,7 @@ export class SecretSantaApp {
     this.validateEnv();
 
     const openaiApiKey = process.env.OPENAI_API_KEY!;
-    this.llmService = new LlmService(openaiApiKey);
+    this.llmService = new LlmService(openaiApiKey, process.env.OPENAI_TEXT_MODEL || undefined);
     this.imageService = new ImageService(openaiApiKey);
 
     this.emailService = isDryRun ? null : this.createEmailService();
