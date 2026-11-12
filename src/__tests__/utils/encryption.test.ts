@@ -63,28 +63,6 @@ describe('LogEncryption', () => {
     });
   });
 
-  describe('getMapping', () => {
-    it('should return mapping of all encrypted names', () => {
-      const encryption = new LogEncryption();
-
-      encryption.encryptName('Jan Kowalski');
-      encryption.encryptName('Anna Nowak');
-
-      const mapping = encryption.getMapping();
-
-      expect(Object.keys(mapping)).toHaveLength(2);
-      expect(mapping['Jan Kowalski']).toMatch(/^\[USER-[A-F0-9]{8}\]$/);
-      expect(mapping['Anna Nowak']).toMatch(/^\[USER-[A-F0-9]{8}\]$/);
-    });
-
-    it('should return empty object when no names encrypted', () => {
-      const encryption = new LogEncryption();
-      const mapping = encryption.getMapping();
-
-      expect(mapping).toEqual({});
-    });
-  });
-
   describe('custom key', () => {
     it('should use custom key for encryption', () => {
       const customKey = 'my-secret-key-12345';

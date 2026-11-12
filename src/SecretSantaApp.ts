@@ -153,9 +153,8 @@ export class SecretSantaApp {
   ): Promise<void> {
     const { gifter, giftee } = assignment;
     const gifterDisplay = this.formatNameForLog(gifter.name);
-    const gifteeDisplay = this.formatNameForLog(giftee.name);
 
-    console.log(`[${index}/${total}] Processing ${gifterDisplay} → ${gifteeDisplay}`);
+    console.log(`[${index}/${total}] Processing ${gifterDisplay}`);
 
     const message = await this.generateMessage(gifter.name, giftee.name, giftee.description);
     const imageBuffer = this.shouldSkipImages ? Buffer.alloc(0) : await this.generateImage(giftee.description);
@@ -289,14 +288,6 @@ Wygenerowano: ${new Date().toLocaleString()}
       console.log('   (Dry run - no emails were sent)');
     }
 
-    // Print encryption mapping if logs were encrypted
-    if (this.shouldEncryptLogs && this.logEncryption) {
-      console.log('\n🔑 Encryption Mapping (for reference):');
-      const mapping = this.logEncryption.getMapping();
-      Object.entries(mapping).forEach(([original, encrypted]) => {
-        console.log(`   ${original} → ${encrypted}`);
-      });
-    }
 
     console.log('═'.repeat(50));
   }
