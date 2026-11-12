@@ -1,6 +1,7 @@
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as readline from 'readline/promises';
 import { SecretSantaAlgorithm } from './algorithm/SecretSanta';
 import { ConfigLoader } from './config/loadConfig';
 import { LlmService } from './services/LlmService';
@@ -9,6 +10,7 @@ import { EmailService } from './services/EmailService';
 import { StateStore, participantsFingerprint } from './state/StateStore';
 import { LogEncryption } from './utils/encryption';
 import { isTransientError, withRetry } from './utils/retry';
+import { verifyDraw } from './verification/verifyDraw';
 import { DrawEntry, DrawState, GeneratedImage, Participant, SendGridConfig } from './types';
 
 export interface AppOptions {
@@ -24,6 +26,8 @@ export interface AppOptions {
   generationDelayMs?: number;
   /** Discard an interrupted draw and start a new one */
   fresh?: boolean;
+  /** Send without asking for confirmation after the verification report */
+  yes?: boolean;
 }
 
 const DEFAULT_GENERATION_DELAY_MS = 1000;
@@ -50,7 +54,11 @@ export class SecretSantaApp {
   private logEncryption: LogEncryption | null;
   private outputDir = path.join(process.cwd(), 'output');
 
-  constructor(private options: AppOptions = {}, stateStore: StateStore = new StateStore()) {
+  constructor(
+    private options: AppOptions = {},
+    stateStore: StateStore = new StateStore(),
+    private confirm: (question: string) => Promise<boolean> = askYesNo
+  ) {
     if (options.resume && options.fresh) {
       throw new Error('Use either --resume or --fresh, not both');
     }
@@ -110,6 +118,14 @@ export class SecretSantaApp {
       const state = this.options.dryRun
         ? this.createDraw(participants)
         : this.loadOrCreateDraw(participants);
+
+      this.printVerificationReport(state, participants);
+
+      if (!this.options.dryRun && !(await this.confirmSending(state))) {
+        console.log('\n🛑 Stopped before generating or sending anything.');
+        console.log('   Run with --resume to continue this draw, or --fresh to draw again.');
+        return;
+      }
 
       await this.generateContent(state);
 
@@ -214,6 +230,52 @@ export class SecretSantaApp {
     };
   }
 
+  // ── Verification ────────────────────────────────────────────────
+
+  /**
+   * Print a spoiler-free report: structure checks, the gift graph with
+   * names replaced by per-run random hashes (no name → hash mapping is
+   * ever shown), and the list of email recipients without their pairs.
+   */
+  private printVerificationReport(state: DrawState, participants: Participant[]): void {
+    const report = verifyDraw(state.entries, participants);
+    const mark = (ok: boolean) => (ok ? '✓' : '✗');
+    const n = report.participantCount;
+
+    console.log('🔍 Draw verification (no names revealed)');
+    console.log(`   Draw code:                   #${state.drawCode}`);
+    console.log(`   Participants:                ${n}`);
+    console.log(`   Everyone gives exactly once: ${mark(report.everyoneGivesOnce)}`);
+    console.log(`   Everyone gets exactly once:  ${mark(report.everyoneReceivesOnce)}`);
+    console.log(`   Nobody drew themselves:      ${mark(report.noSelfAssignment)}`);
+    console.log(`   Structure:                   ${describeCycles(report.cycleLengths)}`);
+
+    // Fresh random key, separate from --encrypt-logs, so these hashes can't
+    // be matched against masked names in the progress logs
+    const masking = new LogEncryption();
+    const graph = state.entries
+      .map(e => `${masking.encryptName(e.gifter.name)} → ${masking.encryptName(e.giftee.name)}`)
+      .sort();
+    console.log('   Masked gift graph:');
+    graph.forEach(line => console.log(`      ${line}`));
+
+    const recipients = state.entries.map(e => this.formatNameForLog(e.gifter.name)).sort();
+    console.log(`   Email recipients:            ${recipients.join(', ')}`);
+    console.log('');
+
+    if (!report.ok) {
+      throw new Error('Draw verification failed - nothing was sent. Run with --fresh to draw again.');
+    }
+  }
+
+  private async confirmSending(state: DrawState): Promise<boolean> {
+    if (this.options.yes) {
+      return true;
+    }
+    const pending = state.entries.filter(e => !e.sentAt).length;
+    return this.confirm(`Generate content and send ${pending} email(s)? [y/N] `);
+  }
+
   // ── Phase 2: generate ───────────────────────────────────────────
 
   private async generateContent(state: DrawState): Promise<void> {
@@ -268,7 +330,13 @@ export class SecretSantaApp {
       console.log(`[${i + 1}/${pending.length}] ${this.formatEmailForLog(entry.gifter.email)}`);
 
       await withRetry(
-        () => this.emailService!.sendSecretSantaEmail(entry.gifter, entry.giftee, entry.message!, toImage(entry)),
+        () => this.emailService!.sendSecretSantaEmail(
+          entry.gifter,
+          entry.giftee,
+          entry.message!,
+          toImage(entry),
+          state.drawCode
+        ),
         {
           shouldRetry: isTransientError,
           onRetry: (_error, attempt, delayMs) =>
@@ -349,6 +417,30 @@ function toImage(entry: DrawEntry): GeneratedImage | undefined {
     mimeType: entry.image.mimeType,
     extension: entry.image.extension,
   };
+}
+
+function describeCycles(lengths: number[]): string {
+  if (lengths.length === 0) return 'invalid';
+  if (lengths.length === 1) return `one cycle of ${lengths[0]}`;
+  return `${lengths.length} cycles (${[...lengths].sort((a, b) => b - a).join(' + ')})`;
+}
+
+/**
+ * Ask a yes/no question on the terminal. Refuses (returns false) when
+ * there is no interactive terminal, so unattended runs need --yes.
+ */
+async function askYesNo(question: string): Promise<boolean> {
+  if (!process.stdin.isTTY) {
+    console.log('No interactive terminal - pass --yes to send without confirmation.');
+    return false;
+  }
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const answer = await rl.question(question);
+    return ['y', 'yes', 't', 'tak'].includes(answer.trim().toLowerCase());
+  } finally {
+    rl.close();
+  }
 }
 
 function sleep(ms: number): Promise<void> {

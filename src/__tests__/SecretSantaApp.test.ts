@@ -34,7 +34,7 @@ jest.mock('../services/EmailService', () => ({
   })),
 }));
 
-const fast = { generationDelayMs: 0 };
+const fast = { generationDelayMs: 0, yes: true };
 
 describe('SecretSantaApp', () => {
   let tmp: string;
@@ -166,6 +166,38 @@ describe('SecretSantaApp', () => {
       for (const q of participants) {
         expect(output).not.toMatch(new RegExp(`${p.name}.*(→|->).*${q.name}`));
       }
+    }
+  });
+  it('asks for confirmation and stops without generating when declined', async () => {
+    const confirm = jest.fn().mockResolvedValue(false);
+    await new SecretSantaApp({ generationDelayMs: 0 }, store, confirm).run();
+
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('send 4 email(s)'));
+    expect(mockGenerateMessage).not.toHaveBeenCalled();
+    expect(mockSend).not.toHaveBeenCalled();
+    // The draw is kept so it can be resumed instead of re-drawn
+    expect(store.exists()).toBe(true);
+  });
+
+  it('sends after confirmation', async () => {
+    const confirm = jest.fn().mockResolvedValue(true);
+    await new SecretSantaApp({ generationDelayMs: 0 }, store, confirm).run();
+    expect(mockSend).toHaveBeenCalledTimes(participants.length);
+  });
+
+  it('prints a verification report with a masked graph and the draw code in emails', async () => {
+    const log = console.log as jest.Mock;
+    log.mockClear();
+    await new SecretSantaApp({ ...fast }, store).run();
+
+    const output = log.mock.calls.map(args => args.join(' ')).join('\n');
+    expect(output).toContain('Nobody drew themselves:      ✓');
+    expect(output).toContain('one cycle of 4');
+    expect(output.match(/\[USER-[0-9A-F]{8}\] → \[USER-[0-9A-F]{8}\]/g)).toHaveLength(4);
+
+    const code = output.match(/Draw code: +#([0-9A-F]{4})/)![1];
+    for (const call of mockSend.mock.calls) {
+      expect(call[4]).toBe(code);
     }
   });
 });

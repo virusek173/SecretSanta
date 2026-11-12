@@ -7,6 +7,8 @@ export interface EmailTemplateInput {
   gifteeName: string;
   message: string;
   imageCid?: string;
+  /** Short code of this draw, so participants can spot an email from an old run */
+  drawCode?: string;
 }
 
 export const EMAIL_SUBJECT = '🎁 Wyniki losowania prezentów';
@@ -155,7 +157,8 @@ ${input.imageCid ? `
     <div class="footer">
       <p>Ta wiadomość została wygenerowana automatycznie w ramach zabawy Secret Santa.</p>
       <p>Jeśli masz pytania, skontaktuj się z organizatorem.</p>
-      <p>🎄 Wesołych Świąt! 🎄</p>
+      <p>🎄 Wesołych Świąt! 🎄</p>${input.drawCode ? `
+      <p style="font-size: 11px; color: #999;">Kod losowania: #${escapeHtml(input.drawCode)}</p>` : ''}
       <p style="font-size: 11px; color: #999; margin-top: 20px;">
         Otrzymujesz tę wiadomość, ponieważ bierzesz udział w zabawie Secret Santa.<br>
         Jeśli nie chcesz otrzymywać więcej wiadomości, skontaktuj się z organizatorem.
@@ -185,6 +188,6 @@ Miłego przygotowywania prezentu i wesołych świąt!
 Ta wiadomość została wygenerowana automatycznie w ramach zabawy Secret Santa.
 Jeśli masz pytania, skontaktuj się z organizatorem.
 
-🎄 Wesołych Świąt! 🎄
+🎄 Wesołych Świąt! 🎄${input.drawCode ? `\nKod losowania: #${input.drawCode}` : ''}
   `.trim();
 }

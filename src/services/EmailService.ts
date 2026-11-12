@@ -103,7 +103,8 @@ export class EmailService implements IEmailService {
     gifter: Participant,
     giftee: Participant,
     message: string,
-    image?: GeneratedImage
+    image?: GeneratedImage,
+    drawCode?: string
   ): Promise<void> {
     const hasImage = !!(image && image.data.length > 0);
     const templateInput = {
@@ -111,6 +112,7 @@ export class EmailService implements IEmailService {
       gifteeName: giftee.name,
       message,
       imageCid: hasImage ? IMAGE_CID : undefined,
+      drawCode,
     };
 
     await this.sendEmail({

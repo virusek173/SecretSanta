@@ -5,7 +5,7 @@ dotenv.config({ quiet: true });
 
 async function main() {
   const args = process.argv.slice(2);
-  const knownFlags = ['--dry-run', '--no-images', '--encrypt-logs', '--resume', '--fresh'];
+  const knownFlags = ['--dry-run', '--no-images', '--encrypt-logs', '--resume', '--fresh', '--yes'];
   const unknown = args.filter(arg => !knownFlags.includes(arg));
   if (unknown.length > 0) {
     console.error(`Unknown option(s): ${unknown.join(', ')}\nAvailable: ${knownFlags.join(', ')}`);
@@ -19,6 +19,7 @@ async function main() {
       encryptLogs: args.includes('--encrypt-logs'),
       resume: args.includes('--resume'),
       fresh: args.includes('--fresh'),
+      yes: args.includes('--yes'),
     });
     await app.run();
   } catch (error) {

@@ -50,3 +50,17 @@ describe('emailTemplates', () => {
     });
   });
 });
+
+describe('draw code', () => {
+  const input = { gifterName: 'Anna', gifteeName: 'Jan', message: 'x', drawCode: '7F3A' };
+
+  it('appears in both HTML and text emails', () => {
+    expect(renderHtmlEmail(input)).toContain('Kod losowania: #7F3A');
+    expect(renderTextEmail(input)).toContain('Kod losowania: #7F3A');
+  });
+
+  it('is omitted when not given', () => {
+    expect(renderHtmlEmail({ ...input, drawCode: undefined })).not.toContain('Kod losowania');
+    expect(renderTextEmail({ ...input, drawCode: undefined })).not.toContain('Kod losowania');
+  });
+});

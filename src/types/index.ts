@@ -104,7 +104,8 @@ export interface IEmailService {
     gifter: Participant,
     giftee: Participant,
     message: string,
-    image?: GeneratedImage
+    image?: GeneratedImage,
+    drawCode?: string
   ): Promise<void>;
 }
 
