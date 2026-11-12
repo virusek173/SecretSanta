@@ -1,3 +1,4 @@
+import sgClient from '@sendgrid/client';
 import sgMail from '@sendgrid/mail';
 import { IEmailService, EmailData, GeneratedImage, Participant, SendGridConfig } from '../types';
 import { EMAIL_SUBJECT, renderHtmlEmail, renderTextEmail } from './emailTemplates';
@@ -13,6 +14,7 @@ export class EmailService implements IEmailService {
   constructor(config: SendGridConfig) {
     this.validateConfig(config);
     sgMail.setApiKey(config.apiKey);
+    sgClient.setApiKey(config.apiKey);
     this.fromAddress = config.from;
   }
 
@@ -128,12 +130,24 @@ export class EmailService implements IEmailService {
   }
 
   /**
-   * Verify SendGrid API key is valid
+   * Verify the SendGrid API key is valid and allowed to send mail.
+   * Calls GET /v3/scopes, which works for any valid key.
    */
   async verifyConnection(): Promise<void> {
-    // The API key is only validated by SendGrid when sending
-    if (!sgMail) {
-      throw new Error('SendGrid connection failed: SendGrid client not initialized');
+    let scopes: string[];
+    try {
+      const [, body] = await sgClient.request({ method: 'GET', url: '/v3/scopes' });
+      scopes = (body as { scopes?: string[] })?.scopes ?? [];
+    } catch (error) {
+      const status = (error as { code?: number })?.code;
+      const reason = status === 401 || status === 403
+        ? 'API key is invalid or revoked'
+        : error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`SendGrid connection failed: ${reason}`);
+    }
+
+    if (!scopes.includes('mail.send')) {
+      throw new Error('SendGrid connection failed: API key lacks the "mail.send" permission');
     }
   }
 }
