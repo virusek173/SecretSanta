@@ -87,10 +87,12 @@ export class EmailService implements IEmailService {
         }
       }
 
-      if (error instanceof Error) {
-        throw new Error(`Failed to send email to ${emailData.to}: ${error.message}`);
-      }
-      throw new Error(`Failed to send email to ${emailData.to}: Unknown error`);
+      const reason = error instanceof Error ? error.message : 'Unknown error';
+      // Keep the HTTP status so callers can decide whether to retry
+      const status = (error as { code?: unknown })?.code;
+      throw Object.assign(new Error(`Failed to send email to ${emailData.to}: ${reason}`), {
+        status: typeof status === 'number' ? status : undefined,
+      });
     }
   }
 

@@ -15,3 +15,5 @@ output/
 
 # Config files (keep examples)
 config/participants.json
+# Saved draw (encrypted, deleted after all emails are sent)
+/state/

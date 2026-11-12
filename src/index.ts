@@ -4,12 +4,22 @@ import { SecretSantaApp } from './SecretSantaApp';
 dotenv.config({ quiet: true });
 
 async function main() {
-  const isDryRun = process.argv.includes('--dry-run');
-  const shouldSkipImages = process.argv.includes('--no-images');
-  const shouldEncryptLogs = process.argv.includes('--encrypt-logs');
+  const args = process.argv.slice(2);
+  const knownFlags = ['--dry-run', '--no-images', '--encrypt-logs', '--resume', '--fresh'];
+  const unknown = args.filter(arg => !knownFlags.includes(arg));
+  if (unknown.length > 0) {
+    console.error(`Unknown option(s): ${unknown.join(', ')}\nAvailable: ${knownFlags.join(', ')}`);
+    process.exit(1);
+  }
 
   try {
-    const app = new SecretSantaApp(isDryRun, shouldSkipImages, shouldEncryptLogs);
+    const app = new SecretSantaApp({
+      dryRun: args.includes('--dry-run'),
+      skipImages: args.includes('--no-images'),
+      encryptLogs: args.includes('--encrypt-logs'),
+      resume: args.includes('--resume'),
+      fresh: args.includes('--fresh'),
+    });
     await app.run();
   } catch (error) {
     console.error('Fatal error:', error instanceof Error ? error.message : error);

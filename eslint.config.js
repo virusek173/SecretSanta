@@ -8,6 +8,7 @@ module.exports = [
       'node_modules/',
       'coverage/',
       'output/',
+      'state/',
       'eslint.config.js',
       'jest.config.js',
     ],

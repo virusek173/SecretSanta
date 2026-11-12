@@ -11,6 +11,8 @@
     "santa:dry-run": "npm run build && node dist/index.js --dry-run",
     "santa:encrypt-logs": "npm run build && node dist/index.js --encrypt-logs",
     "santa:dry-run-no-images": "npm run build && node dist/index.js --dry-run --no-images",
+    "santa:resume": "npm run build && node dist/index.js --resume",
+    "santa:fresh": "npm run build && node dist/index.js --fresh",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

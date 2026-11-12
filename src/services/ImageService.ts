@@ -15,7 +15,8 @@ export class ImageService implements IImageService {
       throw new Error('OpenAI API key is required');
     }
 
-    this.openai = new OpenAI({ apiKey });
+    // The SDK retries rate limits, timeouts and 5xx errors with backoff
+    this.openai = new OpenAI({ apiKey, maxRetries: 4 });
     this.model = model;
   }
 

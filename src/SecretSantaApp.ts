@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { SecretSantaAlgorithm } from './algorithm/SecretSanta';
@@ -5,32 +6,60 @@ import { ConfigLoader } from './config/loadConfig';
 import { LlmService } from './services/LlmService';
 import { ImageService } from './services/ImageService';
 import { EmailService } from './services/EmailService';
+import { StateStore, participantsFingerprint } from './state/StateStore';
 import { LogEncryption } from './utils/encryption';
-import { Assignment, Participant, SendGridConfig } from './types';
+import { isTransientError, withRetry } from './utils/retry';
+import { DrawEntry, DrawState, GeneratedImage, Participant, SendGridConfig } from './types';
+
+export interface AppOptions {
+  /** Generate everything and write it to output/ instead of sending emails */
+  dryRun?: boolean;
+  /** Skip image generation */
+  skipImages?: boolean;
+  /** Mask participant names and emails in console output */
+  encryptLogs?: boolean;
+  /** Continue an interrupted draw instead of starting a new one */
+  resume?: boolean;
+  /** Pause between participants during generation, to stay under API rate limits */
+  generationDelayMs?: number;
+  /** Discard an interrupted draw and start a new one */
+  fresh?: boolean;
+}
+
+const DEFAULT_GENERATION_DELAY_MS = 1000;
 
 /**
- * Main Secret Santa application
+ * Main Secret Santa application.
+ *
+ * A run has three phases:
+ *  1. draw      - assign pairs and persist them (encrypted) in state/
+ *  2. generate  - create messages and images, persisting after each one
+ *  3. send      - email everyone, marking each successful send
+ *
+ * If anything fails, `--resume` continues from the last saved point
+ * without re-drawing, so emails already sent stay valid.
+ * The state is deleted once every email has been sent.
  */
 export class SecretSantaApp {
-  private algorithm: SecretSantaAlgorithm;
-  private configLoader: ConfigLoader;
+  private algorithm = new SecretSantaAlgorithm();
+  private configLoader = new ConfigLoader();
+  private stateStore: StateStore;
   private llmService: LlmService;
   private imageService: ImageService;
   private emailService: EmailService | null;
-  private isDryRun: boolean;
-  private shouldSkipImages: boolean;
-  private shouldEncryptLogs: boolean;
   private logEncryption: LogEncryption | null;
-  private outputDir: string;
+  private outputDir = path.join(process.cwd(), 'output');
 
-  constructor(isDryRun: boolean = false, shouldSkipImages: boolean = false, shouldEncryptLogs: boolean = false) {
-    this.isDryRun = isDryRun;
-    this.shouldSkipImages = shouldSkipImages;
-    this.shouldEncryptLogs = shouldEncryptLogs;
-    this.logEncryption = shouldEncryptLogs ? new LogEncryption() : null;
-    this.outputDir = path.join(process.cwd(), 'output');
-    this.algorithm = new SecretSantaAlgorithm();
-    this.configLoader = new ConfigLoader();
+  constructor(private options: AppOptions = {}, stateStore: StateStore = new StateStore()) {
+    if (options.resume && options.fresh) {
+      throw new Error('Use either --resume or --fresh, not both');
+    }
+    if (options.dryRun && options.resume) {
+      throw new Error('--resume cannot be combined with --dry-run');
+    }
+
+    this.stateStore = stateStore;
+    this.logEncryption = options.encryptLogs ? new LogEncryption() : null;
 
     this.validateEnv();
 
@@ -38,13 +67,13 @@ export class SecretSantaApp {
     this.llmService = new LlmService(openaiApiKey, process.env.OPENAI_TEXT_MODEL || undefined);
     this.imageService = new ImageService(openaiApiKey, process.env.OPENAI_IMAGE_MODEL || undefined);
 
-    this.emailService = isDryRun ? null : this.createEmailService();
+    this.emailService = options.dryRun ? null : this.createEmailService();
   }
 
   private validateEnv(): void {
     const required = ['OPENAI_API_KEY'];
 
-    if (!this.isDryRun) {
+    if (!this.options.dryRun) {
       required.push('SENDGRID_API_KEY', 'SENDGRID_FROM');
     }
 
@@ -70,225 +99,258 @@ export class SecretSantaApp {
     this.printHeader();
 
     try {
-      if (this.isDryRun) {
-        this.prepareOutputDirectory();
+      const participants = this.loadParticipants();
+
+      if (this.emailService) {
+        console.log('📧 Verifying SendGrid API key...');
+        await this.emailService.verifyConnection();
+        console.log('✓ SendGrid API key is valid\n');
       }
 
-      const config = this.loadConfiguration();
-      await this.verifySmtpIfNeeded();
-      const assignments = this.performAssignment(config.participants);
-      await this.processAllAssignments(assignments);
+      const state = this.options.dryRun
+        ? this.createDraw(participants)
+        : this.loadOrCreateDraw(participants);
+
+      await this.generateContent(state);
+
+      if (this.options.dryRun) {
+        this.writePreview(state);
+      } else {
+        await this.sendAll(state);
+        this.stateStore.clear();
+      }
 
       this.printSuccess();
     } catch (error) {
       console.error('\n❌ Error:', error instanceof Error ? error.message : 'Unknown error');
+      if (!this.options.dryRun && this.stateStore.exists()) {
+        console.error('   Progress is saved. Fix the problem and run again with --resume.');
+      }
       throw error;
     }
-  }
-
-  private prepareOutputDirectory(): void {
-    if (fs.existsSync(this.outputDir)) {
-      // Clean existing output directory
-      fs.rmSync(this.outputDir, { recursive: true, force: true });
-    }
-    fs.mkdirSync(this.outputDir, { recursive: true });
-    console.log(`📁 Output directory prepared: ${this.outputDir}\n`);
   }
 
   private printHeader(): void {
     console.log('🎅 Secret Santa Application');
     console.log('═'.repeat(50));
-    if (this.isDryRun) {
+    if (this.options.dryRun) {
       console.log('⚠️  DRY RUN MODE - No emails will be sent');
+      console.log('⚠️  The preview in output/ reveals every pair - don\'t open it if you take part!');
     }
-    if (this.shouldSkipImages) {
+    if (this.options.skipImages) {
       console.log('⚠️  SKIP IMAGES MODE - No images will be generated');
     }
-    if (this.shouldEncryptLogs) {
+    if (this.options.encryptLogs) {
       console.log('🔒 ENCRYPTED LOGS MODE - Names will be masked in logs');
     }
-    if (this.isDryRun || this.shouldSkipImages || this.shouldEncryptLogs) {
-      console.log('');
-    }
+    console.log('');
   }
 
-  private loadConfiguration() {
+  private loadParticipants(): Participant[] {
     console.log('📂 Loading configuration...');
-    const config = this.configLoader.loadConfig();
-    console.log(`✓ Loaded ${config.participants.length} participants\n`);
-    return config;
+    const { participants } = this.configLoader.loadConfig();
+    console.log(`✓ Loaded ${participants.length} participants\n`);
+    return participants;
   }
 
-  private async verifySmtpIfNeeded(): Promise<void> {
-    if (this.emailService) {
-      console.log('📧 Verifying SendGrid connection...');
-      await this.emailService.verifyConnection();
-      console.log('✓ SendGrid connection successful\n');
+  // ── Phase 1: draw ───────────────────────────────────────────────
+
+  private loadOrCreateDraw(participants: Participant[]): DrawState {
+    const hasSaved = this.stateStore.exists();
+
+    if (this.options.resume) {
+      if (!hasSaved) {
+        throw new Error('Nothing to resume: no saved draw found. Run without --resume to start a new draw.');
+      }
+      const state = this.stateStore.load();
+      if (state.participantsFingerprint !== participantsFingerprint(participants)) {
+        throw new Error(
+          'participants.json changed since the saved draw was made. ' +
+          'Restore it, or start over with --fresh (people who already got an email will get a new one).'
+        );
+      }
+      const sent = state.entries.filter(e => e.sentAt).length;
+      console.log(`↩️  Resuming saved draw from ${state.createdAt} (${sent}/${state.entries.length} emails sent)\n`);
+      return state;
     }
+
+    if (hasSaved && !this.options.fresh) {
+      throw new Error(
+        'An unfinished draw is saved in state/. ' +
+        'Run with --resume to finish it, or --fresh to discard it and draw again ' +
+        '(people who already got an email will get a new one).'
+      );
+    }
+
+    if (hasSaved) {
+      console.log('🗑️  Discarding the unfinished draw (--fresh)\n');
+      this.stateStore.clear();
+    }
+
+    const state = this.createDraw(participants);
+    this.stateStore.save(state);
+    return state;
   }
 
-  private performAssignment(participants: Participant[]) {
+  private createDraw(participants: Participant[]): DrawState {
     console.log('🎲 Performing Secret Santa assignment...');
     const assignments = this.algorithm.assign(participants);
-    console.log(`✓ Created ${assignments.length} assignments\n`);
-    return assignments;
+
+    // Store entries in config order, not in cycle order, so the processing
+    // order in the logs says nothing about who drew whom
+    const order = new Map(participants.map((p, i) => [p.name, i]));
+    const entries: DrawEntry[] = assignments
+      .map(({ gifter, giftee }) => ({ gifter, giftee }))
+      .sort((a, b) => order.get(a.gifter.name)! - order.get(b.gifter.name)!);
+
+    console.log(`✓ Created ${entries.length} assignments\n`);
+
+    return {
+      version: 1,
+      createdAt: new Date().toISOString(),
+      drawCode: crypto.randomBytes(2).toString('hex').toUpperCase(),
+      participantsFingerprint: participantsFingerprint(participants),
+      entries,
+    };
   }
 
-  private async processAllAssignments(assignments: Assignment[]): Promise<void> {
-    console.log('📨 Processing assignments...\n');
+  // ── Phase 2: generate ───────────────────────────────────────────
 
-    for (let i = 0; i < assignments.length; i++) {
-      await this.processAssignment(assignments[i], i + 1, assignments.length);
+  private async generateContent(state: DrawState): Promise<void> {
+    const pending = state.entries.filter(e => !e.sentAt && this.needsContent(e));
+    if (pending.length === 0) {
+      return;
+    }
 
-      if (i < assignments.length - 1) {
-        await this.delayBetweenRequests();
+    console.log(`🤖 Generating content for ${pending.length} participant(s)...\n`);
+
+    for (let i = 0; i < pending.length; i++) {
+      const entry = pending[i];
+      console.log(`[${i + 1}/${pending.length}] ${this.formatNameForLog(entry.gifter.name)}`);
+
+      if (!entry.message) {
+        console.log('   📝 Generating message...');
+        entry.message = await this.llmService.generateMessage(
+          entry.gifter.name,
+          entry.giftee.name,
+          entry.giftee.description
+        );
+        this.persist(state);
+      }
+
+      if (!this.options.skipImages && !entry.image) {
+        console.log('   🎨 Generating image...');
+        const image = await this.imageService.generateImage(entry.giftee.description);
+        entry.image = { base64: image.data.toString('base64'), mimeType: image.mimeType, extension: image.extension };
+        this.persist(state);
+      }
+
+      console.log('   ✓ Done');
+      if (i < pending.length - 1) {
+        await sleep(this.options.generationDelayMs ?? DEFAULT_GENERATION_DELAY_MS);
       }
     }
+    console.log('');
   }
 
-  private async processAssignment(
-    assignment: Assignment,
-    index: number,
-    total: number
-  ): Promise<void> {
-    const { gifter, giftee } = assignment;
-    const gifterDisplay = this.formatNameForLog(gifter.name);
-
-    console.log(`[${index}/${total}] Processing ${gifterDisplay}`);
-
-    const message = await this.generateMessage(gifter.name, giftee.name, giftee.description);
-    const imageBuffer = this.shouldSkipImages ? Buffer.alloc(0) : await this.generateImage(giftee.description);
-
-    await this.sendOrPreview(gifter, giftee, message, imageBuffer);
+  private needsContent(entry: DrawEntry): boolean {
+    return !entry.message || (!this.options.skipImages && !entry.image);
   }
 
-  private async generateMessage(
-    gifterName: string,
-    gifteeName: string,
-    description: string
-  ): Promise<string> {
-    console.log(`   🤖 Generating message...`);
-    const message = await this.llmService.generateMessage(gifterName, gifteeName, description);
-    console.log(`   ✓ Message generated`);
-    return message;
-  }
+  // ── Phase 3: send / preview ─────────────────────────────────────
 
-  private async generateImage(description: string): Promise<Buffer> {
-    if (this.shouldSkipImages) {
-      console.log(`   🎨 Skipping image generation...`);
-      return Buffer.alloc(0);
+  private async sendAll(state: DrawState): Promise<void> {
+    const pending = state.entries.filter(e => !e.sentAt);
+    console.log(`📨 Sending ${pending.length} email(s)...\n`);
+
+    for (let i = 0; i < pending.length; i++) {
+      const entry = pending[i];
+      console.log(`[${i + 1}/${pending.length}] ${this.formatEmailForLog(entry.gifter.email)}`);
+
+      await withRetry(
+        () => this.emailService!.sendSecretSantaEmail(entry.gifter, entry.giftee, entry.message!, toImage(entry)),
+        {
+          shouldRetry: isTransientError,
+          onRetry: (_error, attempt, delayMs) =>
+            console.log(`   ⚠️  Attempt ${attempt} failed, retrying in ${delayMs / 1000}s...`),
+        }
+      );
+
+      entry.sentAt = new Date().toISOString();
+      this.persist(state);
+      console.log('   ✓ Sent');
     }
-    console.log(`   🎨 Generating image...`);
-    const { data: imageBuffer } = await this.imageService.generateImage(description);
-    console.log(`   ✓ Image generated`);
-    return imageBuffer;
+    console.log('');
   }
 
-  private async sendOrPreview(
-    gifter: Participant,
-    giftee: Participant,
-    message: string,
-    imageBuffer: Buffer
-  ): Promise<void> {
-    if (this.isDryRun) {
-      await this.saveToFiles(gifter, giftee, message, imageBuffer);
-    } else {
-      await this.sendEmail(gifter, giftee, message, imageBuffer);
-    }
-  }
+  private writePreview(state: DrawState): void {
+    fs.rmSync(this.outputDir, { recursive: true, force: true });
+    fs.mkdirSync(this.outputDir, { recursive: true });
 
-  private async saveToFiles(
-    gifter: Participant,
-    giftee: Participant,
-    message: string,
-    imageBuffer: Buffer
-  ): Promise<void> {
-    const sanitizedName = gifter.name.replace(/[^a-z0-9]/gi, '_');
-
-    // Save message to text file
-    const messageFileName = `${sanitizedName}_message.txt`;
-    const messageFilePath = path.join(this.outputDir, messageFileName);
-    const messageContent = `Od: ${gifter.name} <${gifter.email}>
-Do: Uczestnik Secret Santa
+    for (const entry of state.entries) {
+      const baseName = entry.gifter.name.replace(/[^a-z0-9]/gi, '_');
+      const content = `Do: ${entry.gifter.name} <${entry.gifter.email}>
 Temat: Twoje losowanie Secret Santa
 
-Cześć ${gifter.name},
+Cześć ${entry.gifter.name},
 
-Wylosowałeś/-aś: ${giftee.name}
+Twoja wylosowana osoba: ${entry.giftee.name}
 
-${message}
+${entry.message}
 
 ---
 Wygenerowano: ${new Date().toLocaleString()}
 `;
+      fs.writeFileSync(path.join(this.outputDir, `${baseName}_message.txt`), content, 'utf-8');
 
-    fs.writeFileSync(messageFilePath, messageContent, 'utf-8');
-
-    console.log(`   💾 [DRY RUN] Saved to files:`);
-    console.log(`       Message: ${messageFileName}`);
-
-    // Save image only if not skipped
-    if (!this.shouldSkipImages && imageBuffer.length > 0) {
-      const imageFileName = `${sanitizedName}_image.jpg`;
-      const imageFilePath = path.join(this.outputDir, imageFileName);
-      fs.writeFileSync(imageFilePath, imageBuffer);
-      console.log(`       Image: ${imageFileName}`);
+      const image = toImage(entry);
+      if (image) {
+        fs.writeFileSync(path.join(this.outputDir, `${baseName}_image.${image.extension}`), image.data);
+      }
     }
 
-    console.log(`   📝 Message preview:\n${this.formatMessage(message)}`);
+    console.log(`💾 [DRY RUN] Preview written to ${this.outputDir}\n`);
   }
 
-  private async sendEmail(
-    gifter: Participant,
-    giftee: Participant,
-    message: string,
-    imageBuffer: Buffer
-  ): Promise<void> {
-    const emailDisplay = this.formatEmailForLog(gifter.email);
-    console.log(`   📧 Sending email to ${emailDisplay}...`);
-    await this.emailService!.sendSecretSantaEmail(gifter, giftee, message, {
-      data: imageBuffer,
-      mimeType: 'image/jpeg',
-      extension: 'jpg',
-    });
-    console.log(`   ✓ Email sent successfully`);
-  }
+  // ── Helpers ─────────────────────────────────────────────────────
 
-  private formatMessage(message: string): string {
-    return message
-      .split('\n')
-      .map(line => `       ${line}`)
-      .join('\n');
+  private persist(state: DrawState): void {
+    if (!this.options.dryRun) {
+      this.stateStore.save(state);
+    }
   }
 
   private formatNameForLog(name: string): string {
-    if (this.logEncryption) {
-      return this.logEncryption.encryptName(name);
-    }
-    return name;
+    return this.logEncryption ? this.logEncryption.encryptName(name) : name;
   }
 
   private formatEmailForLog(email: string): string {
-    if (this.logEncryption) {
-      return this.logEncryption.encryptEmail(email);
-    }
-    return email;
-  }
-
-  private async delayBetweenRequests(): Promise<void> {
-    const delayMs = 2000;
-    console.log(`   ⏳ Waiting ${delayMs / 1000}s before next request...\n`);
-    await new Promise(resolve => setTimeout(resolve, delayMs));
+    return this.logEncryption ? this.logEncryption.encryptEmail(email) : email;
   }
 
   private printSuccess(): void {
     console.log('═'.repeat(50));
     console.log('✅ Secret Santa completed successfully!');
-    if (this.isDryRun) {
+    if (this.options.dryRun) {
       console.log('   (Dry run - no emails were sent)');
+    } else {
+      console.log('   Saved draw deleted - the pairs are now known only to the participants.');
     }
-
-
     console.log('═'.repeat(50));
   }
+}
+
+function toImage(entry: DrawEntry): GeneratedImage | undefined {
+  if (!entry.image) {
+    return undefined;
+  }
+  return {
+    data: Buffer.from(entry.image.base64, 'base64'),
+    mimeType: entry.image.mimeType,
+    extension: entry.image.extension,
+  };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }

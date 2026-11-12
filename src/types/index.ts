@@ -41,6 +41,33 @@ export interface GeneratedImage {
 }
 
 /**
+ * One assignment together with its generated content and delivery status
+ */
+export interface DrawEntry {
+  gifter: Participant;
+  giftee: Participant;
+  message?: string;
+  image?: {
+    base64: string;
+    mimeType: string;
+    extension: string;
+  };
+  sentAt?: string;
+}
+
+/**
+ * Persisted state of a draw, used to resume an interrupted run
+ */
+export interface DrawState {
+  version: 1;
+  createdAt: string;
+  /** Short code shown in every email so participants can spot emails from an old run */
+  drawCode: string;
+  participantsFingerprint: string;
+  entries: DrawEntry[];
+}
+
+/**
  * Email data to be sent
  */
 export interface EmailData {
