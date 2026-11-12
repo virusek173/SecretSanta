@@ -1,5 +1,8 @@
 import sgMail from '@sendgrid/mail';
-import { IEmailService, EmailData, Participant, SendGridConfig } from '../types';
+import { IEmailService, EmailData, GeneratedImage, Participant, SendGridConfig } from '../types';
+import { EMAIL_SUBJECT, renderHtmlEmail, renderTextEmail } from './emailTemplates';
+
+const IMAGE_CID = 'christmas-image';
 
 /**
  * Service for sending emails via SendGrid
@@ -40,7 +43,7 @@ export class EmailService implements IEmailService {
         subject: emailData.subject,
         html: emailData.html,
         // Plain text version improves deliverability
-        text: emailData.text || this.stripHtml(emailData.html),
+        text: emailData.text || stripHtml(emailData.html),
         // Category helps with tracking and reputation
         categories: ['secret-santa', 'event-notification'],
         // Custom headers to improve deliverability
@@ -50,27 +53,14 @@ export class EmailService implements IEmailService {
         },
         // Mail settings to improve deliverability
         mailSettings: {
-          bypassListManagement: {
-            enable: false,
-          },
-          footer: {
-            enable: false,
-          },
-          sandboxMode: {
-            enable: false,
-          },
+          bypassListManagement: { enable: false },
+          footer: { enable: false },
+          sandboxMode: { enable: false },
         },
         trackingSettings: {
-          clickTracking: {
-            enable: false,
-            enableText: false,
-          },
-          openTracking: {
-            enable: false,
-          },
-          subscriptionTracking: {
-            enable: false,
-          },
+          clickTracking: { enable: false, enableText: false },
+          openTracking: { enable: false },
+          subscriptionTracking: { enable: false },
         },
         attachments: emailData.attachments && emailData.attachments.length > 0
           ? emailData.attachments.map(att => ({
@@ -89,10 +79,9 @@ export class EmailService implements IEmailService {
       if (error && typeof error === 'object' && 'response' in error) {
         const sgError = error as { response?: { body: unknown }; code?: string };
         if (sgError.response) {
-          const { body } = sgError.response;
           console.error('\n❌ SendGrid Error Details:');
           console.error('Status:', sgError.code);
-          console.error('Response:', JSON.stringify(body, null, 2));
+          console.error('Response:', JSON.stringify(sgError.response.body, null, 2));
         }
       }
 
@@ -104,225 +93,62 @@ export class EmailService implements IEmailService {
   }
 
   /**
-   * Send Secret Santa email with personalized message and image
+   * Send Secret Santa email with personalized message and optional inline image
    */
   async sendSecretSantaEmail(
     gifter: Participant,
     giftee: Participant,
     message: string,
-    imageBuffer?: Buffer
+    image?: GeneratedImage
   ): Promise<void> {
-    const hasImage = !!(imageBuffer && imageBuffer.length > 0);
-    const textContent = this.createTextEmailTemplate(gifter.name, giftee.name, message);
-    const htmlContent = this.createEmailTemplate(gifter.name, giftee.name, message, hasImage);
+    const hasImage = !!(image && image.data.length > 0);
+    const templateInput = {
+      gifterName: gifter.name,
+      gifteeName: giftee.name,
+      message,
+      imageCid: hasImage ? IMAGE_CID : undefined,
+    };
 
-    const emailData: EmailData = {
+    await this.sendEmail({
       to: gifter.email,
-      subject: '🎁 Wyniki losowania prezentów',
-      html: htmlContent,
-      text: textContent,
+      subject: EMAIL_SUBJECT,
+      html: renderHtmlEmail(templateInput),
+      text: renderTextEmail(templateInput),
       attachments: hasImage
         ? [
           {
-            filename: 'christmas.jpg',
-            contentType: 'image/jpeg',
-            content: imageBuffer!,
-            cid: 'christmas-image',
+            filename: `christmas.${image!.extension}`,
+            content: image!.data,
+            contentType: image!.mimeType,
+            cid: IMAGE_CID,
           },
         ]
         : undefined,
-    };
-
-    await this.sendEmail(emailData);
-  }
-
-  /**
-   * Create HTML email template
-   */
-  private createEmailTemplate(
-    gifterName: string,
-    _gifteeName: string,
-    message: string,
-    hasImage: boolean
-  ): string {
-    return `
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Święty Mikołaj - Wyniki losowania prezentów</title>
-  <style>
-    body {
-      font-family: Arial, Helvetica, sans-serif;
-      line-height: 1.6;
-      color: #333333;
-      background-color: #f5f5f5;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 600px;
-      margin: 20px auto;
-      background-color: #ffffff;
-      padding: 40px 30px;
-    }
-    .header {
-      text-align: center;
-      margin-bottom: 30px;
-      padding-bottom: 20px;
-      border-bottom: 2px solid #d32f2f;
-    }
-    .header h1 {
-      color: #d32f2f;
-      margin: 10px 0;
-      font-size: 24px;
-    }
-    .greeting {
-      font-size: 16px;
-      margin-bottom: 20px;
-      color: #333333;
-    }
-    .message-box {
-      background-color: #fafafa;
-      border-left: 4px solid #d32f2f;
-      padding: 20px;
-      margin: 25px 0;
-    }
-    .message-box p {
-      margin: 10px 0;
-      color: #333333;
-    }
-    .image-container {
-      text-align: center;
-      margin: 30px 0;
-    }
-    .image-container img {
-      max-width: 100%;
-      height: auto;
-      display: block;
-      margin: 0 auto;
-    }
-    .reminder {
-      background-color: #fff3cd;
-      border: 1px solid #ffc107;
-      padding: 15px;
-      margin: 25px 0;
-      color: #856404;
-    }
-    .footer {
-      text-align: center;
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 1px solid #dddddd;
-      font-size: 13px;
-      color: #666666;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>🎅 Święty Mikołaj - Wyniki losowania prezentów 🎁</h1>
-    </div>
-
-    <div class="greeting">
-      <p>Cześć ${gifterName}!</p>
-    </div>
-
-    <div class="message-box">
-      ${message.split('\n').map(line => `<p>${line || '&nbsp;'}</p>`).join('')}
-    </div>
-
-    ${hasImage
-        ? `
-    <div class="image-container">
-      <img src="cid:christmas-image" alt="Ilustracja świąteczna" />
-    </div>
-    `
-        : ''
-      }
-
-    <div class="reminder">
-      <p><strong>Ważne przypomnienie:</strong></p>
-      <p>Wylosowana osoba to tajemnica! Nie mów nikomu, kogo wylosowałeś.</p>
-      <p>Miłego przygotowywania prezentu i wesołych świąt!</p>
-    </div>
-
-    <div class="footer">
-      <p>Ta wiadomość została wygenerowana automatycznie w ramach zabawy Secret Santa.</p>
-      <p>Jeśli masz pytania, skontaktuj się z organizatorem.</p>
-      <p>🎄 Wesołych Świąt! 🎄</p>
-      <p style="font-size: 11px; color: #999; margin-top: 20px;">
-        Otrzymujesz tę wiadomość, ponieważ bierzesz udział w zabawie Secret Santa.<br>
-        Jeśli nie chcesz otrzymywać więcej wiadomości, skontaktuj się z organizatorem.
-      </p>
-    </div>
-  </div>
-</body>
-</html>
-    `.trim();
-  }
-
-  /**
-   * Create plain text email template
-   */
-  private createTextEmailTemplate(
-    gifterName: string,
-    _gifteeName: string,
-    message: string
-  ): string {
-    return `
-ŚWIĘTY MIKOŁAJ
-
-Cześć ${gifterName}!
-
-${message}
-
-WAŻNE PRZYPOMNIENIE:
-Wylosowana osoba to tajemnica! Nie mów nikomu, kogo wylosowałeś.
-Miłego przygotowywania prezentu i wesołych świąt!
-
----
-Ta wiadomość została wygenerowana automatycznie w ramach zabawy Secret Santa.
-Jeśli masz pytania, skontaktuj się z organizatorem.
-
-🎄 Wesołych Świąt! 🎄
-    `.trim();
-  }
-
-  /**
-   * Strip HTML tags for plain text fallback
-   */
-  private stripHtml(html: string): string {
-    return html
-      .replace(/<style[^>]*>.*?<\/style>/gis, '')
-      .replace(/<[^>]+>/g, '')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/\s+/g, ' ')
-      .trim();
+    });
   }
 
   /**
    * Verify SendGrid API key is valid
    */
   async verifyConnection(): Promise<void> {
-    // SendGrid doesn't have a built-in verify method like nodemailer
-    // We'll do a basic check that the API key is set
-    try {
-      // The API key validation happens when sending emails
-      // For now, we just check if it's configured
-      if (!sgMail) {
-        throw new Error('SendGrid client not initialized');
-      }
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`SendGrid connection failed: ${error.message}`);
-      }
-      throw new Error('SendGrid connection failed: Unknown error');
+    // The API key is only validated by SendGrid when sending
+    if (!sgMail) {
+      throw new Error('SendGrid connection failed: SendGrid client not initialized');
     }
   }
+}
+
+/**
+ * Strip HTML tags for plain text fallback
+ */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[^>]*>.*?<\/style>/gis, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
 }

@@ -77,7 +77,7 @@ export interface IEmailService {
     gifter: Participant,
     giftee: Participant,
     message: string,
-    imageBuffer?: Buffer
+    image?: GeneratedImage
   ): Promise<void>;
 }
 

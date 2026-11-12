@@ -247,7 +247,11 @@ Wygenerowano: ${new Date().toLocaleString()}
   ): Promise<void> {
     const emailDisplay = this.formatEmailForLog(gifter.email);
     console.log(`   📧 Sending email to ${emailDisplay}...`);
-    await this.emailService!.sendSecretSantaEmail(gifter, giftee, message, imageBuffer);
+    await this.emailService!.sendSecretSantaEmail(gifter, giftee, message, {
+      data: imageBuffer,
+      mimeType: 'image/jpeg',
+      extension: 'jpg',
+    });
     console.log(`   ✓ Email sent successfully`);
   }
 
