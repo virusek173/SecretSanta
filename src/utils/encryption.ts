@@ -54,15 +54,4 @@ export class LogEncryption {
 
     return `***@${hash}.masked`;
   }
-
-  /**
-   * Get mapping of original names to encrypted names (for reference)
-   */
-  getMapping(): Record<string, string> {
-    const mapping: Record<string, string> = {};
-    this.cache.forEach((encrypted, original) => {
-      mapping[original] = encrypted;
-    });
-    return mapping;
-  }
 }

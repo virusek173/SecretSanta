@@ -32,6 +32,42 @@ export interface AIContent {
 }
 
 /**
+ * Image produced by the image model
+ */
+export interface GeneratedImage {
+  data: Buffer;
+  mimeType: string;
+  extension: string;
+}
+
+/**
+ * One assignment together with its generated content and delivery status
+ */
+export interface DrawEntry {
+  gifter: Participant;
+  giftee: Participant;
+  message?: string;
+  image?: {
+    base64: string;
+    mimeType: string;
+    extension: string;
+  };
+  sentAt?: string;
+}
+
+/**
+ * Persisted state of a draw, used to resume an interrupted run
+ */
+export interface DrawState {
+  version: 1;
+  createdAt: string;
+  /** Short code shown in every email so participants can spot emails from an old run */
+  drawCode: string;
+  participantsFingerprint: string;
+  entries: DrawEntry[];
+}
+
+/**
  * Email data to be sent
  */
 export interface EmailData {
@@ -42,6 +78,7 @@ export interface EmailData {
   attachments?: Array<{
     filename: string;
     content: Buffer;
+    contentType: string;
     cid: string;
   }>;
 }
@@ -58,7 +95,7 @@ export interface ILlmService {
 }
 
 export interface IImageService {
-  generateImage(gifteeDescription: string): Promise<Buffer>;
+  generateImage(gifteeDescription: string): Promise<GeneratedImage>;
 }
 
 export interface IEmailService {
@@ -67,7 +104,8 @@ export interface IEmailService {
     gifter: Participant,
     giftee: Participant,
     message: string,
-    imageBuffer?: Buffer
+    image?: GeneratedImage,
+    drawCode?: string
   ): Promise<void>;
 }
 
