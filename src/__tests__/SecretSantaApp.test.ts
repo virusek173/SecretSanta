@@ -94,7 +94,7 @@ describe('SecretSantaApp', () => {
     const savedPairs = store.load().entries.map(e => `${e.gifter.name}->${e.giftee.name}`);
 
     // A plain run refuses to overwrite the unfinished draw
-    await expect(new SecretSantaApp({ ...fast }, store).run()).rejects.toThrow('--resume');
+    await expect(new SecretSantaApp({ ...fast }, store).run()).rejects.toThrow('npm run santa:resume');
 
     mockSend.mockReset().mockResolvedValue(undefined);
     mockGenerateMessage.mockClear();

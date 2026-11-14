@@ -108,6 +108,7 @@ export class SecretSantaApp {
 
   async run(): Promise<void> {
     this.printHeader();
+    let drawLoaded = false;
 
     try {
       const participants = this.loadParticipants();
@@ -121,12 +122,13 @@ export class SecretSantaApp {
       const state = this.options.dryRun
         ? this.createDraw(participants)
         : this.loadOrCreateDraw(participants);
+      drawLoaded = true;
 
       this.printVerificationReport(state, participants);
 
       if (!this.options.dryRun && !(await this.confirmSending(state))) {
         console.log('\n🛑 Stopped before generating or sending anything.');
-        console.log('   Run with --resume to continue this draw, or --fresh to draw again.');
+        console.log('   Continue this draw: npm run santa:resume  ·  Draw again: npm run santa:fresh');
         return;
       }
 
@@ -142,8 +144,8 @@ export class SecretSantaApp {
       this.printSuccess();
     } catch (error) {
       console.error('\n❌ Error:', error instanceof Error ? error.message : 'Unknown error');
-      if (!this.options.dryRun && this.stateStore.exists()) {
-        console.error('   Progress is saved. Fix the problem and run again with --resume.');
+      if (drawLoaded && !this.options.dryRun && this.stateStore.exists()) {
+        console.error('   Progress is saved. Fix the problem, then continue with: npm run santa:resume');
       }
       throw error;
     }
@@ -179,13 +181,13 @@ export class SecretSantaApp {
 
     if (this.options.resume) {
       if (!hasSaved) {
-        throw new Error('Nothing to resume: no saved draw found. Run without --resume to start a new draw.');
+        throw new Error('Nothing to resume: no saved draw found. Start a new draw with: npm run santa');
       }
       const state = this.stateStore.load();
       if (state.participantsFingerprint !== participantsFingerprint(participants)) {
         throw new Error(
           'participants.json changed since the saved draw was made. ' +
-          'Restore it, or start over with --fresh (people who already got an email will get a new one).'
+          'Restore it, or start over with npm run santa:fresh (people who already got an email will get a new one).'
         );
       }
       const sent = state.entries.filter(e => e.sentAt).length;
@@ -196,7 +198,7 @@ export class SecretSantaApp {
     if (hasSaved && !this.options.fresh) {
       throw new Error(
         'An unfinished draw is saved in state/. ' +
-        'Run with --resume to finish it, or --fresh to discard it and draw again ' +
+        'Finish it: npm run santa:resume  ·  Discard it and draw again: npm run santa:fresh ' +
         '(people who already got an email will get a new one).'
       );
     }
@@ -267,7 +269,7 @@ export class SecretSantaApp {
     console.log('');
 
     if (!report.ok) {
-      throw new Error('Draw verification failed - nothing was sent. Run with --fresh to draw again.');
+      throw new Error('Draw verification failed - nothing was sent. Draw again with: npm run santa:fresh');
     }
   }
 
