@@ -51,8 +51,8 @@ describe('SecretSantaApp', () => {
     store = new StateStore(path.join(tmp, 'state'));
 
     process.env.OPENAI_API_KEY = 'test';
-    process.env.SENDGRID_API_KEY = 'test';
-    process.env.SENDGRID_FROM = 'santa@example.com';
+    process.env.RESEND_API_KEY = 'test';
+    process.env.EMAIL_FROM = 'santa@example.com';
 
     mockLoadConfig.mockReturnValue({ participants });
     mockGenerateMessage.mockImplementation(async (gifter: string, giftee: string) => `msg ${gifter}->${giftee}`);

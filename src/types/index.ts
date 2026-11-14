@@ -123,7 +123,7 @@ export interface SecretSantaOptions {
 /**
  * SendGrid email service configuration
  */
-export interface SendGridConfig {
+export interface EmailConfig {
   apiKey: string;
   from: string;
 }

@@ -1,98 +1,79 @@
-import sgClient from '@sendgrid/client';
-import sgMail from '@sendgrid/mail';
-import { IEmailService, EmailData, GeneratedImage, Participant, SendGridConfig } from '../types';
+import { createHash } from 'crypto';
+import { IEmailService, EmailData, EmailConfig, GeneratedImage, Participant } from '../types';
 import { EMAIL_SUBJECT, renderHtmlEmail, renderTextEmail } from './emailTemplates';
 
+const API_URL = 'https://api.resend.com';
 const IMAGE_CID = 'christmas-image';
+const SENDER_NAME = 'Święty Mikołaj';
+
+/** Resend error names that a retry can't fix */
+const PERMANENT_ERRORS = ['daily_quota_exceeded', 'monthly_quota_exceeded'];
+
+type Fetch = typeof fetch;
+
+interface ResendError {
+  status: number;
+  name?: string;
+  message?: string;
+}
 
 /**
- * Service for sending emails via SendGrid
+ * Service for sending emails via Resend (https://resend.com).
+ * See docs/decisions/0001-resend-instead-of-sendgrid.md for why not SendGrid.
  */
 export class EmailService implements IEmailService {
-  private fromAddress: string;
+  private readonly apiKey: string;
+  private readonly from: string;
+  private readonly fromAddress: string;
 
-  constructor(config: SendGridConfig) {
-    this.validateConfig(config);
-    sgMail.setApiKey(config.apiKey);
-    sgClient.setApiKey(config.apiKey);
-    this.fromAddress = config.from;
-  }
-
-  /**
-   * Validate SendGrid configuration
-   */
-  private validateConfig(config: SendGridConfig): void {
+  constructor(config: EmailConfig, private readonly fetchFn: Fetch = fetch) {
     if (!config.apiKey) {
-      throw new Error('SendGrid API key is required');
+      throw new Error('Resend API key is required');
     }
     if (!config.from) {
       throw new Error('From address is required');
     }
+    this.apiKey = config.apiKey;
+    // Accept both "santa@example.com" and "Name <santa@example.com>"
+    this.from = config.from.includes('<') ? config.from : `${SENDER_NAME} <${config.from}>`;
+    this.fromAddress = this.from.match(/<([^>]+)>/)?.[1]?.trim() ?? config.from;
   }
 
   /**
    * Send an email
    */
-  async sendEmail(emailData: EmailData): Promise<void> {
+  async sendEmail(emailData: EmailData, idempotencyKey?: string): Promise<void> {
+    const body = {
+      from: this.from,
+      to: [emailData.to],
+      reply_to: this.fromAddress,
+      subject: emailData.subject,
+      html: emailData.html,
+      text: emailData.text,
+      tags: [{ name: 'app', value: 'secret-santa' }],
+      attachments: emailData.attachments?.map(att => ({
+        filename: att.filename,
+        content: att.content.toString('base64'),
+        content_type: att.contentType,
+        content_id: att.cid,
+      })),
+    };
+
+    let error: ResendError | null;
     try {
-      const msg: sgMail.MailDataRequired = {
-        to: emailData.to,
-        from: {
-          email: this.fromAddress,
-          name: 'Święty Mikołaj',
-        },
-        replyTo: this.fromAddress,
-        subject: emailData.subject,
-        html: emailData.html,
-        // Plain text version improves deliverability
-        text: emailData.text || stripHtml(emailData.html),
-        // Category helps with tracking and reputation
-        categories: ['secret-santa', 'event-notification'],
-        // Custom headers to improve deliverability
-        headers: {
-          'X-Entity-Ref-ID': `secret-santa-${Date.now()}`,
-          'List-Unsubscribe': `<mailto:${this.fromAddress}?subject=unsubscribe>`,
-        },
-        // Mail settings to improve deliverability
-        mailSettings: {
-          bypassListManagement: { enable: false },
-          footer: { enable: false },
-          sandboxMode: { enable: false },
-        },
-        trackingSettings: {
-          clickTracking: { enable: false, enableText: false },
-          openTracking: { enable: false },
-          subscriptionTracking: { enable: false },
-        },
-        attachments: emailData.attachments && emailData.attachments.length > 0
-          ? emailData.attachments.map(att => ({
-            content: att.content.toString('base64'),
-            filename: att.filename,
-            type: att.contentType,
-            disposition: 'inline',
-            content_id: att.cid,
-          }))
-          : undefined,
-      };
+      error = await this.request('POST', '/emails', body, idempotencyKey);
+    } catch (networkError) {
+      // No HTTP status: treated as transient by the retry logic
+      const reason = networkError instanceof Error ? networkError.message : 'Unknown error';
+      throw new Error(`Failed to send email to ${emailData.to}: ${reason}`);
+    }
 
-      await sgMail.send(msg);
-    } catch (error: unknown) {
-      // Log detailed error information from SendGrid
-      if (error && typeof error === 'object' && 'response' in error) {
-        const sgError = error as { response?: { body: unknown }; code?: string };
-        if (sgError.response) {
-          console.error('\n❌ SendGrid Error Details:');
-          console.error('Status:', sgError.code);
-          console.error('Response:', JSON.stringify(sgError.response.body, null, 2));
-        }
-      }
-
-      const reason = error instanceof Error ? error.message : 'Unknown error';
-      // Keep the HTTP status so callers can decide whether to retry
-      const status = (error as { code?: unknown })?.code;
-      throw Object.assign(new Error(`Failed to send email to ${emailData.to}: ${reason}`), {
-        status: typeof status === 'number' ? status : undefined,
-      });
+    if (error) {
+      console.error(`\n❌ Resend error ${error.status}: ${error.name ?? ''} ${error.message ?? ''}`);
+      throw Object.assign(
+        new Error(`Failed to send email to ${emailData.to}: ${error.message ?? error.name ?? error.status}`),
+        { status: error.status, retryable: !PERMANENT_ERRORS.includes(error.name ?? '') }
+      );
     }
   }
 
@@ -115,6 +96,12 @@ export class EmailService implements IEmailService {
       drawCode,
     };
 
+    // Same draw + same recipient = same key, so a retry after a timeout
+    // can't deliver the email twice (Resend keeps keys for 24 hours)
+    const idempotencyKey = drawCode
+      ? createHash('sha256').update(`${drawCode}:${gifter.email}`).digest('hex')
+      : undefined;
+
     await this.sendEmail({
       to: gifter.email,
       subject: EMAIL_SUBJECT,
@@ -130,43 +117,61 @@ export class EmailService implements IEmailService {
           },
         ]
         : undefined,
-    });
+    }, idempotencyKey);
   }
 
   /**
-   * Verify the SendGrid API key is valid and allowed to send mail.
-   * Calls GET /v3/scopes, which works for any valid key.
+   * Check the API key before drawing. A "Sending access" key can only send,
+   * so GET /domains answers restricted_api_key for a valid one. A "Full access"
+   * key also lets us check that the sender's domain is verified.
    */
   async verifyConnection(): Promise<void> {
-    let scopes: string[];
-    try {
-      const [, body] = await sgClient.request({ method: 'GET', url: '/v3/scopes' });
-      scopes = (body as { scopes?: string[] })?.scopes ?? [];
-    } catch (error) {
-      const status = (error as { code?: number })?.code;
-      const reason = status === 401 || status === 403
-        ? 'API key is invalid or revoked'
-        : error instanceof Error ? error.message : 'Unknown error';
-      throw new Error(`SendGrid connection failed: ${reason}`);
+    const response = await this.fetchFn(`${API_URL}/domains`, { headers: this.headers() });
+    const payload = await response.json().catch(() => ({}));
+
+    if (response.ok) {
+      const domain = this.fromAddress.split('@').pop()?.toLowerCase();
+      const domains = (payload as { data?: Array<{ name: string; status: string }> }).data ?? [];
+      const match = domains.find(d => d.name.toLowerCase() === domain);
+      if (!match) {
+        throw new Error(`Resend: domain "${domain}" of the sender address is not added in Resend`);
+      }
+      if (match.status !== 'verified') {
+        throw new Error(`Resend: domain "${domain}" is not verified yet (status: ${match.status})`);
+      }
+      return;
     }
 
-    if (!scopes.includes('mail.send')) {
-      throw new Error('SendGrid connection failed: API key lacks the "mail.send" permission');
+    if ((payload as { name?: string }).name === 'restricted_api_key') {
+      return;
     }
+    throw new Error('Resend connection failed: API key is invalid or revoked');
   }
-}
 
-/**
- * Strip HTML tags for plain text fallback
- */
-function stripHtml(html: string): string {
-  return html
-    .replace(/<style[^>]*>.*?<\/style>/gis, '')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/\s+/g, ' ')
-    .trim();
+  private headers(idempotencyKey?: string): Record<string, string> {
+    return {
+      Authorization: `Bearer ${this.apiKey}`,
+      'Content-Type': 'application/json',
+      ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
+    };
+  }
+
+  /** Returns null on success, the API error otherwise */
+  private async request(
+    method: string,
+    path: string,
+    body: unknown,
+    idempotencyKey?: string
+  ): Promise<ResendError | null> {
+    const response = await this.fetchFn(`${API_URL}${path}`, {
+      method,
+      headers: this.headers(idempotencyKey),
+      body: JSON.stringify(body),
+    });
+    if (response.ok) {
+      return null;
+    }
+    const payload = await response.json().catch(() => ({})) as { name?: string; message?: string };
+    return { status: response.status, name: payload.name, message: payload.message };
+  }
 }

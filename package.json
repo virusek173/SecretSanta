@@ -44,8 +44,6 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@sendgrid/client": "^8.1.6",
-    "@sendgrid/mail": "^8.1.6",
     "dotenv": "^18.0.10",
     "openai": "^7.56.0",
     "validator": "^13.15.35"
