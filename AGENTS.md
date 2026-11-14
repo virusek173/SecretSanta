@@ -26,6 +26,7 @@ The user organizes and takes part, so nobody may see who drew whom, including th
 - Report the verification block (✓ checks, cycle structure, draw code) and counts. That is the spoiler-free summary.
 - Dry-run against the real `config/participants.json` only when the user asks for it, and then leave `output/` unopened. `state/` (encrypted draw) always stays unopened. Their contents are pairs. A made-up list via `--participants` gives a preview you may read.
 - A dry-run draw is throwaway: it is never reused for the real run.
+- Stage commits by path (`git add <file>`), so a stray copy of the participants list can't reach the public repo.
 
 ## Environment
 
