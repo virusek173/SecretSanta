@@ -1,6 +1,6 @@
 # SecretSanta – notes for agents
 
-CLI that draws Secret Santa pairs, generates a Polish message (OpenAI) and an image per person, and emails them via SendGrid.
+CLI that draws Secret Santa pairs, generates a Polish message (OpenAI) and an image per person, and emails them via Resend (not SendGrid: see `docs/decisions/`).
 Flags: `node dist/index.js --help`. npm scripts: `package.json`. Human docs: `README.md`.
 
 ## Running the app
@@ -29,6 +29,7 @@ The user organizes and takes part, so nobody may see who drew whom, including th
 
 ## Environment
 
-- `.env` is blocked for agents by a project hook. Ask the user to edit it, and name the variables: `OPENAI_API_KEY`, `SENDGRID_API_KEY`, `SENDGRID_FROM`, optional `OPENAI_TEXT_MODEL`, `OPENAI_IMAGE_MODEL`.
+- `.env` is blocked for agents by a project hook. Ask the user to edit it, and name the variables: `OPENAI_API_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`, optional `OPENAI_TEXT_MODEL`, `OPENAI_IMAGE_MODEL`.
 - When OpenAI retires a model, change the default constant in `src/services/LlmService.ts` / `ImageService.ts` and check the OpenAI deprecations page for the replacement.
+- Record decisions that future changes should respect in `docs/decisions/NNNN-*.md`.
 - Commits follow Conventional Commits.
