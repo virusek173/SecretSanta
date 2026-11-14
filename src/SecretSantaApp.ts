@@ -11,7 +11,7 @@ import { StateStore, participantsFingerprint } from './state/StateStore';
 import { LogEncryption } from './utils/encryption';
 import { isTransientError, withRetry } from './utils/retry';
 import { verifyDraw } from './verification/verifyDraw';
-import { DrawEntry, DrawState, GeneratedImage, Participant, SendGridConfig } from './types';
+import { DrawEntry, DrawState, GeneratedImage, Participant, EmailConfig } from './types';
 
 export interface AppOptions {
   /** Generate everything and write it to output/ instead of sending emails */
@@ -85,7 +85,7 @@ export class SecretSantaApp {
     const required = ['OPENAI_API_KEY'];
 
     if (!this.options.dryRun) {
-      required.push('SENDGRID_API_KEY', 'SENDGRID_FROM');
+      required.push('RESEND_API_KEY', 'EMAIL_FROM');
     }
 
     const missing = required.filter(key => !process.env[key]);
@@ -99,11 +99,11 @@ export class SecretSantaApp {
   }
 
   private createEmailService(): EmailService {
-    const sendGridConfig: SendGridConfig = {
-      apiKey: process.env.SENDGRID_API_KEY!,
-      from: process.env.SENDGRID_FROM!,
+    const emailConfig: EmailConfig = {
+      apiKey: process.env.RESEND_API_KEY!,
+      from: process.env.EMAIL_FROM!,
     };
-    return new EmailService(sendGridConfig);
+    return new EmailService(emailConfig);
   }
 
   async run(): Promise<void> {
@@ -114,9 +114,9 @@ export class SecretSantaApp {
       const participants = this.loadParticipants();
 
       if (this.emailService) {
-        console.log('📧 Verifying SendGrid API key...');
+        console.log('📧 Verifying Resend API key...');
         await this.emailService.verifyConnection();
-        console.log('✓ SendGrid API key is valid\n');
+        console.log('✓ Resend API key is valid\n');
       }
 
       const state = this.options.dryRun

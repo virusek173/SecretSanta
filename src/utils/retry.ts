@@ -40,6 +40,9 @@ export async function withRetry<T>(operation: () => Promise<T>, options: RetryOp
  * client errors such as a bad API key or invalid request.
  */
 export function isTransientError(error: unknown): boolean {
+  if ((error as { retryable?: unknown })?.retryable === false) {
+    return false;
+  }
   const status = (error as { code?: unknown; status?: unknown })?.status
     ?? (error as { code?: unknown })?.code;
   if (typeof status === 'number') {
