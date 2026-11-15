@@ -76,6 +76,10 @@ cp config/participants.json.example config/participants.json
 }
 ```
 
+What to put in each field, especially `description`, is in
+[docs/participants.md](docs/participants.md). You can hand that file to an agent that
+builds the list from people's profiles.
+
 ## 📖 Usage
 
 ### Run the draw and send emails
