@@ -1,6 +1,18 @@
 # Writing `participants.json`
 
-Brief for whoever (human or agent) turns people's profiles into the participants file.
+## What the file is for
+
+`participants.json` is the only input of the Secret Santa app: the list of people taking
+part in the gift exchange. The app reads it, draws who buys a gift for whom, and emails
+each person the name of the one they drew. For every pair it uses the description of the
+person who **receives** the gift: an AI writes a personal Christmas message with a gift
+idea, and an AI image model draws a festive picture. Both go into the email to the person
+who **gives** the gift.
+
+So each entry answers two questions: where to send this person their draw (`name`, `email`),
+and what their Secret Santa should know to pick them a good present (`description`).
+
+This brief is for whoever (human or agent) turns people's profiles into that file.
 The result goes to `config/participants.json`, which is git-ignored. It holds personal
 data: keep it out of commits, PRs and chat logs.
 
