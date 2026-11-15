@@ -3,27 +3,32 @@
     {
       "name": "Anna Kowalska",
       "email": "anna.kowalska@example.com",
-      "description": "Uwielbia czytać książki fantasy i science fiction, lubi pić herbatę, interesuje się astrologią"
+      "description": "Uwielbia czytać książki fantasy i science fiction, lubi pić herbatę, interesuje się astrologią",
+      "gender": "female"
     },
     {
       "name": "Jan Nowak",
       "email": "jan.nowak@example.com",
-      "description": "Pasjonat technologii i gadżetów, gra na gitarze, fan filmów Marvela"
+      "description": "Pasjonat technologii i gadżetów, gra na gitarze, fan filmów Marvela",
+      "gender": "male"
     },
     {
       "name": "Maria Wiśniewska",
       "email": "maria.wisniewska@example.com",
-      "description": "Uwielbia gotować i próbować nowych przepisów, lubi rośliny doniczkowe, fan jogi"
+      "description": "Uwielbia gotować i próbować nowych przepisów, lubi rośliny doniczkowe, fan jogi",
+      "gender": "female"
     },
     {
       "name": "Piotr Zieliński",
       "email": "piotr.zielinski@example.com",
-      "description": "Entuzjasta gier planszowych, lubi dobry kryminał, pasjonat fotografii"
+      "description": "Entuzjasta gier planszowych, lubi dobry kryminał, pasjonat fotografii",
+      "gender": "male"
     },
     {
       "name": "Katarzyna Dąbrowska",
       "email": "katarzyna.dabrowska@example.com",
-      "description": "Artystka, maluje akrylami, lubi vintage i sztukę art deco, fanka jazzu"
+      "description": "Artystka, maluje akrylami, lubi vintage i sztukę art deco, fanka jazzu",
+      "gender": "female"
     }
   ]
 }

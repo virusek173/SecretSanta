@@ -1,11 +1,14 @@
 import OpenAI from 'openai';
-import { ILlmService } from '../types';
+import { Gender, ILlmService, Participant } from '../types';
 
 export const DEFAULT_TEXT_MODEL = 'gpt-5.6-terra';
 
 const SYSTEM_PROMPT =
   'Jesteś pomocnym asystentem, który pisze ciepłe, świąteczne wiadomości Secret Santa po polsku. ' +
-  'Dobieraj formy gramatyczne (rodzaj męski lub żeński) do imion osób, o których piszesz. ' +
+  'Płeć osób bierz wyłącznie z informacji w poleceniu, nigdy nie zgaduj jej z imienia. ' +
+  'Gdy płeć nie jest podana, pisz tak, żeby nie wymagało to form męskich ani żeńskich. ' +
+  'Odmieniaj imiona poprawnie przez przypadki, zgodnie z płcią (np. "dla Mirki", "dla Kuby"), ' +
+  'ale nie zdrabniaj ich i nie zwracaj się do nikogo w wołaczu. ' +
   'Nie używaj formatowania markdown, takiego jak **pogrubienie**, *kursywa* lub inne znaki specjalne ' +
   'w celu podkreślenia. Używaj wyłącznie zwykłego tekstu.';
 
@@ -28,16 +31,11 @@ export class LlmService implements ILlmService {
 
   /**
    * Generate a personalized Secret Santa message
-   * @param gifterName Name of the person who will give the gift (recipient of this message)
-   * @param gifteeName Name of the person who will receive the gift
-   * @param gifteeDescription Description/interests of the gift receiver
+   * @param gifter Person who gives the gift and reads this message
+   * @param giftee Person who receives the gift; their description drives the gift idea
    */
-  async generateMessage(
-    gifterName: string,
-    gifteeName: string,
-    gifteeDescription: string
-  ): Promise<string> {
-    const prompt = createPrompt(gifterName, gifteeName, gifteeDescription);
+  async generateMessage(gifter: Participant, giftee: Participant): Promise<string> {
+    const prompt = createPrompt(gifter, giftee);
 
     try {
       const response = await this.openai.chat.completions.create({
@@ -64,17 +62,27 @@ export class LlmService implements ILlmService {
   }
 }
 
+const GENDER_WORDS: Record<Gender, string> = { female: 'kobieta', male: 'mężczyzna' };
+
+function describeGender(person: Participant): string {
+  return person.gender
+    ? `${person.name} to ${GENDER_WORDS[person.gender]}.`
+    : `Płeć osoby ${person.name} nie jest podana.`;
+}
+
 /**
  * Create the user prompt for OpenAI
  */
-export function createPrompt(gifterName: string, gifteeName: string, gifteeDescription: string): string {
-  return `Napisz krótką, ciepłą wiadomość Secret Santa do osoby o imieniu ${gifterName}, która wylosowała osobę o imieniu ${gifteeName}.
+export function createPrompt(gifter: Participant, giftee: Participant): string {
+  return `Napisz krótką, ciepłą wiadomość Secret Santa do osoby o imieniu ${gifter.name}, która wylosowała osobę o imieniu ${giftee.name}.
+
+${describeGender(gifter)} ${describeGender(giftee)}
 
 Wiadomość powinna:
-- Poinformować ${gifterName}, że jest Secret Santa dla ${gifteeName}
+- Poinformować adresata, czyim Secret Santa został lub została w tym roku
 - Zawierać elementy wprowadzające w klimat świąt Bożego Narodzenia
 - Zawierać zabawne lub urocze odniesienie do opisu wylosowanej osoby
-- Zasugerować kreatywny pomysł na prezent bazując na zainteresowaniach: ${gifteeDescription}
+- Zasugerować kreatywny pomysł na prezent bazując na zainteresowaniach: ${giftee.description}
 
 Wiadomość trafi do maila, który ma już własne powitanie. Zacznij więc od razu od świątecznego ogłoszenia losowania, a zakończ życzeniami bez podpisu.
 

@@ -70,11 +70,16 @@ cp config/participants.json.example config/participants.json
     {
       "name": "John Doe",
       "email": "john@example.com",
-      "description": "Loves fantasy books and good coffee"
+      "description": "Loves fantasy books and good coffee",
+      "gender": "male"
     }
   ]
 }
 ```
+
+`gender` (`"female"` or `"male"`) is optional. Polish messages need it for verb forms
+(*zostałeś* / *zostałaś*): the AI never guesses gender from a name, so without the field it
+writes around gendered forms.
 
 What to put in each field, especially `description`, is in
 [docs/participants.md](docs/participants.md). You can hand that file to an agent that
