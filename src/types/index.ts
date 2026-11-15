@@ -5,7 +5,11 @@ export interface Participant {
   name: string;
   email: string;
   description: string;
+  /** Used for Polish grammatical forms; without it the message avoids gendered forms */
+  gender?: Gender;
 }
+
+export type Gender = 'female' | 'male';
 
 /**
  * Assignment of a gift giver to a gift receiver
@@ -91,7 +95,7 @@ export interface ISecretSantaAlgorithm {
 }
 
 export interface ILlmService {
-  generateMessage(gifterName: string, gifteeName: string, gifteeDescription: string): Promise<string>;
+  generateMessage(gifter: Participant, giftee: Participant): Promise<string>;
 }
 
 export interface IImageService {

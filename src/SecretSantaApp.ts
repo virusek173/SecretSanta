@@ -297,11 +297,7 @@ export class SecretSantaApp {
 
       if (!entry.message) {
         console.log('   📝 Generating message...');
-        entry.message = await this.llmService.generateMessage(
-          entry.gifter.name,
-          entry.giftee.name,
-          entry.giftee.description
-        );
+        entry.message = await this.llmService.generateMessage(entry.gifter, entry.giftee);
         this.persist(state);
       }
 
