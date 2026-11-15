@@ -50,8 +50,10 @@ EMAIL_FROM=santa@your-domain.com   # or: Santa <santa@your-domain.com>
 **Setting up Resend:**
 1. Sign up at https://resend.com (free plan, no card).
 2. Domains → Add Domain → enter your domain. Add the records Resend lists at your DNS
-   provider (DKIM TXT `resend._domainkey`, MX and SPF TXT on `send`), then click Verify.
-   Your root SPF and MX records stay as they are.
+   provider, then click Verify. In November 2026 these were a DKIM TXT record
+   (`resend._domainkey`) and CNAME records for sending (`send`, `rsend`); copy the full
+   values from the dashboard. Keep the trailing dot on CNAME targets if your provider
+   (e.g. OVH) would otherwise append your domain. Your root SPF and MX records stay as they are.
 3. API Keys → Create API Key. "Sending access" is enough; "Full access" also lets the
    app check, before the draw, that your sender domain is verified.
 4. `EMAIL_FROM` can be any address in the verified domain; it needn't be a real mailbox.
@@ -78,6 +80,10 @@ cp config/participants.json.example config/participants.json
 `gender` (`"female"` or `"male"`) is optional. Polish messages need it for verb forms
 (*zostałeś* / *zostałaś*): the AI never guesses gender from a name, so without the field it
 writes around gendered forms.
+
+What to put in each field, especially `description`, is in
+[docs/participants.md](docs/participants.md). You can hand that file to an agent that
+builds the list from people's profiles.
 
 ## 📖 Usage
 
@@ -149,8 +155,12 @@ dry-run draw is never reused for the real run.
 
 ### All options
 ```bash
-node dist/index.js [--dry-run] [--no-images] [--encrypt-logs] [--resume | --fresh] [--yes]
+node dist/index.js [--dry-run] [--no-images] [--encrypt-logs] [--resume | --fresh] [--yes] [--participants <file>]
+npm run santa -- --no-images    # with npm, put flags after "--"
 ```
+
+⚠️ `npm run santa --fresh` (without `--`) hands the flag to npm, not to the app. Use the
+ready scripts (`santa:resume`, `santa:fresh`, …) or `npm run santa -- <flags>`.
 
 | Option | Effect |
 |---|---|
@@ -160,6 +170,8 @@ node dist/index.js [--dry-run] [--no-images] [--encrypt-logs] [--resume | --fres
 | `--resume` | Continue an unfinished draw |
 | `--fresh` | Discard an unfinished draw and draw again |
 | `--yes` | Don't ask for confirmation before sending |
+| `--participants <file>` | Use another participants file (default: `config/participants.json`) |
+| `--help` | List options and exit codes |
 
 ### Tests, build, lint
 ```bash
@@ -167,6 +179,9 @@ npm test
 npm run build
 npm run lint
 ```
+
+Tests mock OpenAI and Resend: they send no email and cost nothing. Only `santa:dry-run*`
+(OpenAI) and the sending runs (OpenAI + Resend) use your keys.
 
 ## 🏗️ Project Structure
 
@@ -190,13 +205,14 @@ SecretSanta/
 │   ├── __tests__/                    # Unit tests
 │   ├── SecretSantaApp.ts             # Main application (draw → generate → send)
 │   └── index.ts                      # CLI entry point
-├── docs/decisions/                # Why things are the way they are
+├── docs/decisions/               # Why things are the way they are (e.g. Resend)
 ├── config/participants.json.example
 ├── .github/workflows/ci.yml          # CI: lint, test, build on Node 20/22/24
 └── package.json
 ```
 
-Git-ignored at runtime: `config/participants.json`, `.env`, `state/`, `output/`.
+Git-ignored at runtime: `config/participants.json` and any copy of it (`participants.json.*`,
+except `.example`), `.env`, `state/`, `output/`.
 
 ## 🔒 Security & privacy
 
