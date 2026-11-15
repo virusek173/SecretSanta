@@ -55,7 +55,7 @@ describe('SecretSantaApp', () => {
     process.env.EMAIL_FROM = 'santa@example.com';
 
     mockLoadConfig.mockReturnValue({ participants });
-    mockGenerateMessage.mockImplementation(async (gifter: string, giftee: string) => `msg ${gifter}->${giftee}`);
+    mockGenerateMessage.mockImplementation(async (gifter: { name: string }, giftee: { name: string }) => `msg ${gifter.name}->${giftee.name}`);
     mockGenerateImage.mockResolvedValue({ data: Buffer.from('img'), mimeType: 'image/jpeg', extension: 'jpg' });
     mockSend.mockReset().mockResolvedValue(undefined);
     mockVerify.mockReset().mockResolvedValue(undefined);

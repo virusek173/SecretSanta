@@ -31,6 +31,10 @@ export class ParticipantValidator {
     if (!participant.description || participant.description.trim().length === 0) {
       throw new Error('Participant description cannot be empty');
     }
+
+    if (participant.gender !== undefined && !['female', 'male'].includes(participant.gender)) {
+      throw new Error(`Invalid gender for ${participant.name}: use "female" or "male", or leave it out`);
+    }
   }
 
   /**
