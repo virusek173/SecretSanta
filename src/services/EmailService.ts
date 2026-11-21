@@ -96,10 +96,11 @@ export class EmailService implements IEmailService {
       drawCode,
     };
 
-    // Same draw + same recipient = same key, so a retry after a timeout
-    // can't deliver the email twice (Resend keeps keys for 24 hours)
+    // Same draw + same gifter = same key, so a retry after a timeout can't
+    // deliver the email twice (Resend keeps keys for 24 hours). Keyed by name,
+    // which is unique, because test lists often send everyone to one address.
     const idempotencyKey = drawCode
-      ? createHash('sha256').update(`${drawCode}:${gifter.email}`).digest('hex')
+      ? createHash('sha256').update(JSON.stringify([drawCode, gifter.name, gifter.email])).digest('hex')
       : undefined;
 
     await this.sendEmail({

@@ -66,6 +66,14 @@ describe('EmailService', () => {
       expect(keys[0]).not.toBe(keys[2]);
       expect(keys[0]).not.toContain('anna');
     });
+
+    it('gives different keys to different people sharing one address', async () => {
+      const annaOnJansAddress = { ...anna, email: jan.email };
+      await service.sendSecretSantaEmail(annaOnJansAddress, jan, 'Hej', undefined, '7F3A');
+      await service.sendSecretSantaEmail(jan, annaOnJansAddress, 'Hej', undefined, '7F3A');
+      const keys = fetchFn.mock.calls.map(call => call[1].headers['Idempotency-Key']);
+      expect(keys[0]).not.toBe(keys[1]);
+    });
   });
 
   describe('errors', () => {
